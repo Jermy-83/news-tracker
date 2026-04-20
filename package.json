@@ -1,8 +1,8 @@
 {
-  "name": "candlestick-lab",
+  "name": "news-tracker",
   "private": true,
   "version": "1.0.0",
-  "description": "Interactive candlestick learning site",
+  "description": "Private market news tracker app",
   "scripts": {
     "start": "node server.js"
   }
