@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market News Tracker</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="pageGlow pageGlowLeft"></div>
+    <div class="pageGlow pageGlowRight"></div>
+    <div class="siteShell">
+      <header class="hero panel">
+        <div class="heroCopy">
+          <div class="eyebrow">Live Market Scanner</div>
+          <h1>Market News Tracker</h1>
+          <p class="heroLead">
+            Track market-moving headlines in one place, sort them fast, and read a cleaner summary before opening the source.
+          </p>
+        </div>
+        <div class="heroStats">
+          <article class="statCard">
+            <span class="statLabel">Focus</span>
+            <strong>What happened</strong>
+            <p>The feed is tuned to show market-moving developments instead of general explainers and background pieces.</p>
+          </article>
+          <article class="statCard">
+            <span class="statLabel">Use</span>
+            <strong>Scan, rank, react</strong>
+            <p>Pick a watchlist, filter by score, sort the list, then open the detail panel for the short article summary.</p>
+          </article>
+          <article class="statCard">
+            <span class="statLabel">Flow</span>
+            <strong>Fresh then visible</strong>
+            <p>New headlines stay marked as fresh until you open them, then they move into the visible list.</p>
+          </article>
+        </div>
+      </header>
+
+      <section class="panel sectionPanel radarPanel">
+        <div class="sectionHead">
+          <div>
+            <div class="sectionEyebrow">Live News Radar</div>
+            <h2>Live trading headlines, cleaned up properly</h2>
+          </div>
+          <div class="sectionActions">
+            <div id="newsStatusPill" class="biasPill wait">Loading feeds</div>
+            <button id="newsRefreshBtn" class="pillBtn" type="button">Check now</button>
+          </div>
+        </div>
+
+        <div class="beginnerHint">
+          <strong>Scanner mode:</strong> Use the filters to narrow the feed, then sort the list by time, score, confidence, or source count.
+        </div>
+
+        <div class="radarToolbar">
+          <div class="controlRow radarControlRow">
+            <label class="field">
+              <span>Watchlist</span>
+              <select id="newsWatchlistSelect"></select>
+            </label>
+            <label id="newsMinScoreField" class="field scoreField">
+              <span>Minimum score</span>
+              <span id="newsMinScoreDot" class="scoreFieldDot" hidden></span>
+              <select id="newsMinScoreSelect">
+                <option value="8">8+ Broad view</option>
+                <option value="12" selected>12+ Focused</option>
+                <option value="16">16+ Only strongest</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Sort by</span>
+              <select id="newsSortSelect">
+                <option value="latest" selected>Latest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="score">Highest score</option>
+                <option value="confidence">Highest confidence</option>
+                <option value="sourceCount">Most sources</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="radarStatsGrid">
+            <div class="scoreBadge">
+              <span>Desk</span>
+              <strong id="newsDeskTitle">News monitor</strong>
+            </div>
+            <button id="newsVisibleBtn" class="scoreBadge filterBadge active" type="button">
+              <span>Visible items</span>
+              <strong id="newsTrackedCount">0</strong>
+            </button>
+            <button id="newsFreshBtn" class="scoreBadge filterBadge" type="button">
+              <span>Fresh items</span>
+              <strong id="newsFreshCount">0</strong>
+            </button>
+            <div class="scoreBadge">
+              <span>Last check</span>
+              <strong id="newsLastCheckLabel">Waiting</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="radarDashboard">
+          <article class="chartCard radarListCard">
+            <div class="chartMeta radarListHead">
+              <div>
+                <strong>Filtered headlines</strong>
+                <p id="newsDeskDescription" class="muted">Loading watchlist metadata...</p>
+              </div>
+              <div class="radarHeadSide">
+                <div class="radarLegend">
+                  <span class="legendItem"><span class="legendSwatch radarHigh"></span>High</span>
+                  <span class="legendItem"><span class="legendSwatch radarMedium"></span>Medium</span>
+                  <span class="legendItem"><span class="legendSwatch radarFresh"></span>Fresh</span>
+                </div>
+                <div class="probabilityStrip">
+                  <span class="probabilityLabel">Heuristic read</span>
+                  <span id="newsBullishProb" class="probabilityPill bullish">Bullish 50%</span>
+                  <span id="newsBearishProb" class="probabilityPill bearish">Bearish 50%</span>
+                </div>
+              </div>
+            </div>
+            <div id="newsList" class="newsList"></div>
+            <div id="newsEmptyState" class="newsEmptyState" hidden>
+              No headlines matched this filter yet.
+            </div>
+          </article>
+
+          <div class="radarSidebar">
+            <article class="chartCard radarDetailCard">
+              <div class="chartMeta">
+                <div>
+                  <strong>Selected headline</strong>
+                  <p id="newsDetailMeta" class="muted">Waiting for the first headline...</p>
+                </div>
+              </div>
+              <h3 id="newsDetailTitle" class="radarDetailTitle">No headline selected yet</h3>
+              <a id="newsDetailSourceLink" class="newsSourceInline" href="#" target="_blank" rel="noreferrer" aria-disabled="true">
+                source
+              </a>
+              <p id="newsDetailSummary" class="newsSummary muted">
+                Once live headlines load, click any row on the left to read its trading context here.
+              </p>
+              <p id="newsDetailMeaning" class="newsMeaning muted">
+                The overall takeaway will appear here.
+              </p>
+              <div id="newsDetailWhy" class="newsWhy">
+                Trading context will appear here.
+              </div>
+              <div id="newsDetailReferences" class="newsReferences"></div>
+              <div id="newsDetailTags" class="newsTags"></div>
+            </article>
+
+            <article class="chartCard radarFeedCard">
+              <div class="chartMeta">
+                <div>
+                  <strong>Scanner health</strong>
+                  <p id="newsFeedSummary" class="muted">Loading source status...</p>
+                </div>
+              </div>
+              <div class="radarHealthGrid">
+                <div class="scoreBadge">
+                  <span>Watch symbols</span>
+                  <strong id="newsSymbolsCount">0</strong>
+                </div>
+                <div class="scoreBadge">
+                  <span>Feeds</span>
+                  <strong id="newsFeedCount">0</strong>
+                </div>
+              </div>
+              <div id="newsFeedList" class="feedStatusList"></div>
+              <div id="newsErrorBox" class="newsErrorBox" hidden></div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="./news-app.js"></script>
+  </body>
+</html>
