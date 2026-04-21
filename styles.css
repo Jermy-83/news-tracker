@@ -489,6 +489,41 @@ h3 {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.newsDismissBtn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #b8c9df;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.newsDismissGlyph {
+  display: block;
+  width: 10px;
+  height: 10px;
+  overflow: visible;
+  pointer-events: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.newsDismissBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(196, 80, 80, 0.14);
+  border-color: rgba(196, 80, 80, 0.22);
+  color: #ffd0d0;
 }
 
 .tagPill {
@@ -603,6 +638,13 @@ h3 {
 .newsListItemSnippet {
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+.newsListSentinel {
+  padding: 12px 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .radarDetailTitle {

@@ -30,6 +30,8 @@
   const detailSourceLink = document.getElementById("newsDetailSourceLink");
   const bullishProb = document.getElementById("newsBullishProb");
   const bearishProb = document.getElementById("newsBearishProb");
+  const INITIAL_RENDER_COUNT = 18;
+  const RENDER_STEP = 12;
 
   if (!watchlistSelect || !listRoot || !sortSelect) return;
 
@@ -42,8 +44,11 @@
     selectedKey: "",
     detailCache: {},
     readFreshKeys: loadReadFreshKeys(),
+    dismissedKeys: loadDismissedKeys(),
     listMode: "visible",
     sortMode: sortSelect.value || "latest",
+    renderCount: INITIAL_RENDER_COUNT,
+    listObserver: null,
     timerHandle: null,
     initialized: false,
   };
@@ -61,6 +66,22 @@
   function persistReadFreshKeys() {
     try {
       window.localStorage.setItem("candlestick-lab-read-fresh", JSON.stringify(state.readFreshKeys));
+    } catch {}
+  }
+
+  function loadDismissedKeys() {
+    try {
+      const raw = window.localStorage.getItem("newstracker-dismissed-news");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function persistDismissedKeys() {
+    try {
+      window.localStorage.setItem("newstracker-dismissed-news", JSON.stringify(state.dismissedKeys));
     } catch {}
   }
 
@@ -281,10 +302,66 @@
   function getDisplayItems() {
     const items =
       state.listMode === "fresh"
-        ? state.items.filter((item) => isUnreadFresh(item))
-        : state.items.filter((item) => !isUnreadFresh(item));
+        ? state.items.filter((item) => isUnreadFresh(item) && !isDismissed(item))
+        : state.items.filter((item) => !isUnreadFresh(item) && !isDismissed(item));
 
     return sortItems(items);
+  }
+
+  function isDismissed(item) {
+    return Boolean(item && state.dismissedKeys[item.key]);
+  }
+
+  function dismissItem(item) {
+    if (!item || isDismissed(item)) {
+      return;
+    }
+
+    state.dismissedKeys[item.key] = Date.now();
+    persistDismissedKeys();
+  }
+
+  function resetRenderCount() {
+    state.renderCount = INITIAL_RENDER_COUNT;
+  }
+
+  function disconnectListObserver() {
+    if (state.listObserver) {
+      state.listObserver.disconnect();
+      state.listObserver = null;
+    }
+  }
+
+  function attachInfiniteSentinel(totalCount) {
+    disconnectListObserver();
+
+    if (state.renderCount >= totalCount) {
+      return;
+    }
+
+    const sentinel = document.createElement("div");
+    sentinel.className = "newsListSentinel";
+    sentinel.textContent = "Loading more headlines...";
+    listRoot.appendChild(sentinel);
+
+    state.listObserver = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+
+        disconnectListObserver();
+        state.renderCount = Math.min(totalCount, state.renderCount + RENDER_STEP);
+        renderItems();
+      },
+      {
+        root: null,
+        rootMargin: "240px 0px",
+        threshold: 0,
+      }
+    );
+
+    state.listObserver.observe(sentinel);
   }
 
   function itemTime(item) {
@@ -462,10 +539,12 @@
   }
 
   function renderItems() {
+    disconnectListObserver();
     clear(listRoot);
-    const visibleItems = state.items.filter((item) => !isUnreadFresh(item));
-    const freshItems = state.items.filter((item) => isUnreadFresh(item));
+    const visibleItems = state.items.filter((item) => !isUnreadFresh(item) && !isDismissed(item));
+    const freshItems = state.items.filter((item) => isUnreadFresh(item) && !isDismissed(item));
     const items = getDisplayItems();
+    const renderedItems = items.slice(0, state.renderCount);
 
     trackedCount.textContent = String(visibleItems.length);
     freshCount.textContent = String(freshItems.length);
@@ -491,7 +570,7 @@
       state.selectedKey = items[0].key;
     }
 
-    items.forEach((item) => {
+    renderedItems.forEach((item) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `newsListItem${item.key === state.selectedKey ? " active" : ""}`;
@@ -525,6 +604,25 @@
 
       const meta = document.createElement("div");
       meta.className = "newsCardMeta";
+      const dismissBtn = document.createElement("button");
+      dismissBtn.type = "button";
+      dismissBtn.className = "newsDismissBtn";
+      dismissBtn.innerHTML = `
+        <svg class="newsDismissGlyph" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+          <path d="M3 3L9 9M9 3L3 9"></path>
+        </svg>
+      `;
+      dismissBtn.setAttribute("aria-label", `Hide ${item.title}`);
+      dismissBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        dismissItem(item);
+        if (state.selectedKey === item.key) {
+          state.selectedKey = "";
+        }
+        renderItems();
+      });
+      meta.appendChild(dismissBtn);
       meta.appendChild(createTag(item.impact, item.impact));
       if ((item.combinedCount || 1) > 1) {
         meta.appendChild(createTag(`${item.combinedCount} src`, "watch"));
@@ -548,6 +646,7 @@
       listRoot.appendChild(button);
     });
 
+    attachInfiniteSentinel(items.length);
     renderDetail(items.find((item) => item.key === state.selectedKey) || items[0]);
   }
 
@@ -564,7 +663,7 @@
       const [statusResponse, itemsResponse] = await Promise.all([
         fetchJson(`/api/news/status?watchlist=${encodeURIComponent(state.watchlistId)}`),
         fetchJson(
-          `/api/news/items?watchlist=${encodeURIComponent(state.watchlistId)}&limit=24&minScore=${encodeURIComponent(
+          `/api/news/items?watchlist=${encodeURIComponent(state.watchlistId)}&limit=60&minScore=${encodeURIComponent(
             state.minScore
           )}`
         ),
@@ -572,6 +671,7 @@
 
       state.status = statusResponse.status;
       state.items = itemsResponse.items || [];
+      resetRenderCount();
       renderStatus();
       renderItems();
     } catch (error) {
@@ -644,17 +744,20 @@
     state.watchlistId = watchlistSelect.value;
     state.detailCache = {};
     state.listMode = "visible";
+    resetRenderCount();
     loadNews().catch(() => {});
   });
 
   minScoreSelect.addEventListener("change", () => {
     state.minScore = Number(minScoreSelect.value || 4);
     state.listMode = "visible";
+    resetRenderCount();
     loadNews().catch(() => {});
   });
 
   sortSelect.addEventListener("change", () => {
     state.sortMode = sortSelect.value || "latest";
+    resetRenderCount();
     renderItems();
   });
 
@@ -664,17 +767,20 @@
 
   visibleBtn.addEventListener("click", () => {
     state.listMode = "visible";
+    resetRenderCount();
     renderItems();
   });
 
   freshBtn.addEventListener("click", () => {
     state.listMode = "fresh";
+    resetRenderCount();
     renderItems();
   });
 
   freshBtn.addEventListener("dblclick", () => {
     markAllFreshItemsRead();
     state.listMode = "visible";
+    resetRenderCount();
     renderItems();
   });
 
