@@ -3,57 +3,73 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Market News Tracker</title>
+    <title>Market Intelligence Desk</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="pageGlow pageGlowLeft"></div>
-    <div class="pageGlow pageGlowRight"></div>
+    <div class="siteBackdrop"></div>
     <div class="siteShell">
-      <header class="hero panel">
-        <div class="heroCopy">
-          <div class="eyebrow">Live Market Scanner</div>
-          <h1>Market News Tracker</h1>
-          <p class="heroLead">
-            Track market-moving headlines in one place, sort them fast, and read a cleaner summary before opening the source.
-          </p>
+      <header class="topbar panel">
+        <div class="brandBlock">
+          <div class="brandMark">NT</div>
+          <div>
+            <div class="eyebrow">News Operations</div>
+            <div class="brandTitle">Market Intelligence Desk</div>
+          </div>
         </div>
-        <div class="heroStats">
-          <article class="statCard">
-            <span class="statLabel">Focus</span>
-            <strong>What happened</strong>
-            <p>The feed is tuned to show market-moving developments instead of general explainers and background pieces.</p>
-          </article>
-          <article class="statCard">
-            <span class="statLabel">Use</span>
-            <strong>Scan, rank, react</strong>
-            <p>Pick a watchlist, filter by score, sort the list, then open the detail panel for the short article summary.</p>
-          </article>
-          <article class="statCard">
-            <span class="statLabel">Flow</span>
-            <strong>Fresh then visible</strong>
-            <p>New headlines stay marked as fresh until you open them, then they move into the visible list.</p>
-          </article>
+        <div class="topbarMeta">
+          <div class="topbarChip">Event-driven coverage</div>
+          <div class="topbarChip">Macro + assets</div>
+          <div class="topbarChip">Live desk workflow</div>
         </div>
       </header>
 
-      <section class="panel sectionPanel radarPanel">
-        <div class="sectionHead">
-          <div>
-            <div class="sectionEyebrow">Live News Radar</div>
-            <h2>Live trading headlines, cleaned up properly</h2>
-          </div>
-          <div class="sectionActions">
+      <section class="masthead panel">
+        <div class="mastheadCopy">
+          <div class="eyebrow">Live Market Intelligence</div>
+          <h1>Market Intelligence Desk</h1>
+          <p class="mastheadLead">
+            Filter for timeliness, signal quality, and score. Scan the list, confirm the read, and open the selected
+            item with cleaner context before you click through to the source.
+          </p>
+          <div class="mastheadActions">
             <div id="newsStatusPill" class="biasPill wait">Loading feeds</div>
             <button id="newsRefreshBtn" class="pillBtn" type="button">Check now</button>
           </div>
         </div>
 
-        <div class="beginnerHint">
-          <strong>Scanner mode:</strong> Use the filters to narrow the feed, then sort the list by time, score, confidence, or source count.
+        <div class="briefingGrid">
+          <article class="briefingCard accentCard">
+            <span class="briefingLabel">Scanner mode</span>
+            <strong>Rank, confirm, react</strong>
+            <p>Use strict filters by default, then widen the context only when you need it.</p>
+          </article>
+          <article class="briefingCard">
+            <span class="briefingLabel">Coverage</span>
+            <strong>Macro, rates, geopolitics, crypto</strong>
+            <p>The desk is tuned for tradable developments rather than background explainers.</p>
+          </article>
+          <article class="briefingCard">
+            <span class="briefingLabel">Workflow</span>
+            <strong>Fresh first, visible after review</strong>
+            <p>Unread fresh items stay separated until you open them and move them into the visible queue.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace panel">
+        <div class="workspaceHead">
+          <div>
+            <div class="sectionEyebrow">Scanner Console</div>
+            <h2>Live headline desk</h2>
+          </div>
+          <p class="workspaceLead">
+            Tight filters for intraday action, broader settings for context, and a dedicated live tape beside the main
+            desk.
+          </p>
         </div>
 
-        <div class="radarToolbar">
+        <div class="controlDeck">
           <div class="controlRow radarControlRow">
             <label class="field">
               <span>Watchlist</span>
@@ -69,6 +85,40 @@
               </select>
             </label>
             <label class="field">
+              <span>Timeliness</span>
+              <select id="newsTimelinessSelect">
+                <option value="4">4h Live tape</option>
+                <option value="12" selected>12h Intraday</option>
+                <option value="24">24h Broad</option>
+                <option value="48">48h Context</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Signal mode</span>
+              <select id="newsSignalSelect">
+                <option value="realtime" selected>Real-time only</option>
+                <option value="balanced">Balanced</option>
+                <option value="broad">Broader context</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Source quality</span>
+              <select id="newsSourceSelect">
+                <option value="all">All sources</option>
+                <option value="established" selected>Established+</option>
+                <option value="trusted">Trusted+</option>
+                <option value="top">Top tier only</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Trading usefulness</span>
+              <select id="newsTradingSelect">
+                <option value="tradeable" selected>Tradeable now</option>
+                <option value="support">Decision support</option>
+                <option value="all">All filtered</option>
+              </select>
+            </label>
+            <label class="field">
               <span>Sort by</span>
               <select id="newsSortSelect">
                 <option value="latest" selected>Latest first</option>
@@ -80,21 +130,21 @@
             </label>
           </div>
 
-          <div class="radarStatsGrid">
-            <div class="scoreBadge">
-              <span>Desk</span>
+          <div class="deskRibbon">
+            <div class="deskRibbonCard">
+              <span class="deskRibbonLabel">Desk</span>
               <strong id="newsDeskTitle">News monitor</strong>
             </div>
             <button id="newsVisibleBtn" class="scoreBadge filterBadge active" type="button">
-              <span>Visible items</span>
+              <span>Visible queue</span>
               <strong id="newsTrackedCount">0</strong>
             </button>
             <button id="newsFreshBtn" class="scoreBadge filterBadge" type="button">
-              <span>Fresh items</span>
+              <span>Fresh queue</span>
               <strong id="newsFreshCount">0</strong>
             </button>
-            <div class="scoreBadge">
-              <span>Last check</span>
+            <div class="deskRibbonCard">
+              <span class="deskRibbonLabel">Last check</span>
               <strong id="newsLastCheckLabel">Waiting</strong>
             </div>
           </div>
@@ -109,12 +159,12 @@
               </div>
               <div class="radarHeadSide">
                 <div class="radarLegend">
-                  <span class="legendItem"><span class="legendSwatch radarHigh"></span>High</span>
+                  <span class="legendItem"><span class="legendSwatch radarHigh"></span>High impact</span>
                   <span class="legendItem"><span class="legendSwatch radarMedium"></span>Medium</span>
                   <span class="legendItem"><span class="legendSwatch radarFresh"></span>Fresh</span>
                 </div>
                 <div class="probabilityStrip">
-                  <span class="probabilityLabel">Heuristic read</span>
+                  <span class="probabilityLabel">Desk bias</span>
                   <span id="newsBullishProb" class="probabilityPill bullish">Bullish 50%</span>
                   <span id="newsBearishProb" class="probabilityPill bearish">Bearish 50%</span>
                 </div>
@@ -141,12 +191,8 @@
               <p id="newsDetailSummary" class="newsSummary muted">
                 Once live headlines load, click any row on the left to read its trading context here.
               </p>
-              <p id="newsDetailMeaning" class="newsMeaning muted">
-                The overall takeaway will appear here.
-              </p>
-              <div id="newsDetailWhy" class="newsWhy">
-                Trading context will appear here.
-              </div>
+              <p id="newsDetailMeaning" class="newsMeaning muted">The overall takeaway will appear here.</p>
+              <div id="newsDetailWhy" class="newsWhy">Trading context will appear here.</div>
               <div id="newsDetailReferences" class="newsReferences"></div>
               <div id="newsDetailTags" class="newsTags"></div>
             </article>
@@ -154,22 +200,69 @@
             <article class="chartCard radarFeedCard">
               <div class="chartMeta">
                 <div>
-                  <strong>Scanner health</strong>
+                  <strong>System health</strong>
                   <p id="newsFeedSummary" class="muted">Loading source status...</p>
                 </div>
               </div>
               <div class="radarHealthGrid">
-                <div class="scoreBadge">
+                <div class="scoreBadge staticBadge">
                   <span>Watch symbols</span>
                   <strong id="newsSymbolsCount">0</strong>
                 </div>
-                <div class="scoreBadge">
-                  <span>Feeds</span>
+                <div class="scoreBadge staticBadge">
+                  <span>Active feeds</span>
                   <strong id="newsFeedCount">0</strong>
                 </div>
               </div>
               <div id="newsFeedList" class="feedStatusList"></div>
               <div id="newsErrorBox" class="newsErrorBox" hidden></div>
+            </article>
+
+            <article class="chartCard radarUpcomingCard">
+              <div class="chartMeta">
+                <div>
+                  <strong>Upcoming catalysts</strong>
+                  <p id="newsCatalystWindowLabel" class="muted">
+                    Loading watchlist-specific catalyst windows...
+                  </p>
+                </div>
+              </div>
+              <div class="embedNotice">
+                Desk-generated catalyst map for scheduled risk windows. This is separate from FinancialJuice and is
+                designed to show what may matter next for the active watchlist.
+              </div>
+              <div id="newsCatalystSummary" class="catalystSummary">Waiting for catalyst data...</div>
+              <div id="newsCatalystList" class="catalystList"></div>
+            </article>
+
+            <article class="chartCard radarTapeCard">
+              <div class="chartMeta">
+                <div>
+                  <strong>FinancialJuice live tape</strong>
+                  <p class="muted">Official embedded live feed for fast macro and market headlines.</p>
+                </div>
+              </div>
+              <div class="embedNotice">
+                The direct RSS endpoint is rate-limited from this machine, so this card uses the official FinancialJuice
+                widget for stable real-time access.
+              </div>
+              <div class="fjWidgetShell">
+                <iframe
+                  class="fjWidgetFrame"
+                  src="https://feed.financialjuice.com/widgets/headlines.aspx?affurl=&backC=1e222d&container=financialjuice-news-widget-container&fontC=b2b5be&height=900px&mode=Light&width=100%25&wtype=NEWS"
+                  title="FinancialJuice live news"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                ></iframe>
+              </div>
+              <a
+                class="newsReferenceLink fjWidgetLink"
+                href="https://www.financialjuice.com/home?widget=headline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open FinancialJuice
+              </a>
             </article>
           </div>
         </div>

@@ -1,5 +1,6 @@
-const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 90_000);
+const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 60_000);
 const MAX_ITEMS = 120;
+const ITEM_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 
 const WATCHLISTS = {
   nasdaq: {
@@ -11,17 +12,17 @@ const WATCHLISTS = {
       {
         id: "nasdaq-headlines",
         label: "Nasdaq Search",
-        url: "https://news.google.com/rss/search?q=NASDAQ+OR+\"US+tech+stocks\"+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=NASDAQ+OR+\"US+tech+stocks\"+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "rates-and-fed",
         label: "Fed / Rates",
-        url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+inflation+OR+treasury+yields+OR+payrolls+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+inflation+OR+treasury+yields+OR+payrolls+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "semis-and-ai",
         label: "Semiconductors / AI",
-        url: "https://news.google.com/rss/search?q=semiconductor+OR+AI+chips+OR+Nvidia+OR+TSMC+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=semiconductor+OR+AI+chips+OR+Nvidia+OR+TSMC+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
     ],
     focusKeywords: [
@@ -62,17 +63,17 @@ const WATCHLISTS = {
       {
         id: "gold-search",
         label: "Gold Search",
-        url: "https://news.google.com/rss/search?q=gold+prices+OR+XAUUSD+OR+bullion+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=gold+prices+OR+XAUUSD+OR+bullion+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "macro-search",
         label: "Macro / Fed",
-        url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+inflation+OR+jobs+OR+treasury+yields+OR+dollar+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+inflation+OR+jobs+OR+treasury+yields+OR+dollar+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "geopolitics-search",
         label: "Geopolitics / Oil",
-        url: "https://news.google.com/rss/search?q=Middle+East+OR+oil+OR+sanctions+OR+war+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=Middle+East+OR+oil+OR+sanctions+OR+war+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
     ],
     focusKeywords: [
@@ -103,17 +104,17 @@ const WATCHLISTS = {
       {
         id: "bitcoin-search",
         label: "Bitcoin Search",
-        url: "https://news.google.com/rss/search?q=Bitcoin+OR+BTC+OR+crypto+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=Bitcoin+OR+BTC+OR+crypto+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "crypto-regulation",
         label: "Crypto Regulation",
-        url: "https://news.google.com/rss/search?q=SEC+crypto+OR+ETF+flows+OR+stablecoin+OR+exchange+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=SEC+crypto+OR+ETF+flows+OR+stablecoin+OR+exchange+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "risk-sentiment",
         label: "Macro Risk Appetite",
-        url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+liquidity+OR+risk+appetite+when:1d&hl=en-US&gl=US&ceid=US:en",
+        url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+liquidity+OR+risk+appetite+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
     ],
     focusKeywords: [
@@ -132,6 +133,153 @@ const WATCHLISTS = {
     ],
   },
 };
+
+const CATALYST_WINDOW_HOURS = 168;
+const CATALYST_MAX_ITEMS = 14;
+const NEW_YORK_TIME_ZONE = "America/New_York";
+
+const CATALYST_DEFINITIONS = [
+  {
+    id: "us-cpi",
+    title: "US CPI inflation release window",
+    category: "Inflation",
+    impact: "high",
+    watchlists: ["nasdaq", "xauusd", "btc"],
+    schedule: (now, end) => monthlyEtCandidates(now, end, ({ year, monthIndex }) => nthWeekdayOfMonth(year, monthIndex, 3, 2), 8, 30),
+    whyItMatters: "Can quickly reprice Fed expectations, Treasury yields, the dollar, gold, growth stocks, and crypto beta.",
+    tradeRisk: "Expect spread widening and fast first-minute moves around the 08:30 ET data window.",
+  },
+  {
+    id: "us-pce",
+    title: "US PCE inflation release window",
+    category: "Inflation",
+    impact: "high",
+    watchlists: ["nasdaq", "xauusd", "btc"],
+    schedule: (now, end) => monthlyEtCandidates(now, end, ({ year, monthIndex }) => lastWeekdayOfMonth(year, monthIndex, 5), 8, 30),
+    whyItMatters: "The Fed's preferred inflation gauge can move front-end rates, real yields, gold, and risk appetite.",
+    tradeRisk: "Treat the first 15 minutes as high-noise confirmation, not a clean signal.",
+  },
+  {
+    id: "us-nfp",
+    title: "US nonfarm payrolls release window",
+    category: "Labor",
+    impact: "high",
+    watchlists: ["nasdaq", "xauusd", "btc"],
+    schedule: (now, end) => monthlyEtCandidates(now, end, ({ year, monthIndex }) => nthWeekdayOfMonth(year, monthIndex, 5, 1), 8, 30),
+    whyItMatters: "Payrolls can reset rate-cut timing, dollar direction, yields, and equity-index volatility.",
+    tradeRisk: "Watch revisions and wage data before trusting the first headline reaction.",
+  },
+  {
+    id: "jobless-claims",
+    title: "US weekly jobless claims",
+    category: "Labor",
+    impact: "medium",
+    watchlists: ["nasdaq", "xauusd"],
+    schedule: (now, end) => weeklyEtCandidates(now, end, 4, 8, 30),
+    whyItMatters: "A timely labor-market pulse that can affect yields, Fed pricing, gold, and tech multiples.",
+    tradeRisk: "Normally medium impact, but it becomes high impact when markets are focused on growth slowdown risk.",
+  },
+  {
+    id: "ism-window",
+    title: "US ISM activity data window",
+    category: "Growth",
+    impact: "medium",
+    watchlists: ["nasdaq", "xauusd"],
+    schedule: (now, end) => monthlyEtCandidates(now, end, ({ year, monthIndex }) => firstBusinessDayOfMonth(year, monthIndex), 10, 0),
+    whyItMatters: "New orders, prices paid, and employment sub-indexes can shift growth and inflation expectations.",
+    tradeRisk: "Look for confirmation from yields and the dollar before assuming trend continuation.",
+  },
+  {
+    id: "fed-risk-window",
+    title: "Fed communication risk window",
+    category: "Rates",
+    impact: "high",
+    watchlists: ["nasdaq", "xauusd", "btc"],
+    schedule: (now, end) => weeklyEtCandidates(now, end, 3, 14, 0),
+    whyItMatters: "Policy language and speaker guidance can change rate-path pricing even without a data release.",
+    tradeRisk: "Headline risk is asymmetric when positioning is crowded around cuts, inflation, or recession trades.",
+  },
+  {
+    id: "treasury-supply",
+    title: "US Treasury supply and auction window",
+    category: "Rates",
+    impact: "medium",
+    watchlists: ["nasdaq", "xauusd"],
+    schedule: (now, end) => [2, 3, 4].flatMap((weekday) => weeklyEtCandidates(now, end, weekday, 13, 0)),
+    whyItMatters: "Auction demand and supply pressure can move yields, the dollar, gold, and long-duration equities.",
+    tradeRisk: "Weak demand matters most when yields are already near breakout levels.",
+  },
+  {
+    id: "nasdaq-earnings",
+    title: "Mega-cap tech earnings risk window",
+    category: "Earnings",
+    impact: "high",
+    watchlists: ["nasdaq"],
+    schedule: (now, end) => [2, 4].flatMap((weekday) => weeklyEtCandidates(now, end, weekday, 16, 5)),
+    whyItMatters: "Large-cap tech guidance can drive Nasdaq futures, semiconductor sentiment, and index breadth.",
+    tradeRisk: "After-hours liquidity can exaggerate gaps before the next cash session confirms the move.",
+  },
+  {
+    id: "semis-asia",
+    title: "Asia semiconductor supply-chain window",
+    category: "Semis",
+    impact: "medium",
+    watchlists: ["nasdaq"],
+    schedule: (now, end) => [1, 3].flatMap((weekday) => weeklyUtcCandidates(now, end, weekday, 1, 0)),
+    whyItMatters: "Taiwan, Korea, Japan, and China headlines can affect AI-chip supply, export controls, and premarket semis.",
+    tradeRisk: "Best confirmation usually comes from NVDA, AMD, TSM, and SOX futures/ADRs.",
+  },
+  {
+    id: "eia-crude",
+    title: "US crude inventory report",
+    category: "Energy",
+    impact: "medium",
+    watchlists: ["xauusd"],
+    schedule: (now, end) => weeklyEtCandidates(now, end, 3, 10, 30),
+    whyItMatters: "Oil shocks can feed inflation expectations, geopolitical risk premium, and gold-safe-haven demand.",
+    tradeRisk: "Gold impact is usually indirect; prioritize dollar, yields, and geopolitical context.",
+  },
+  {
+    id: "london-ny-gold",
+    title: "Gold London-New York liquidity handoff",
+    category: "Liquidity",
+    impact: "medium",
+    watchlists: ["xauusd"],
+    schedule: (now, end) => weekdayEtCandidates(now, end, 8, 20),
+    whyItMatters: "The overlap around US data and New York liquidity often decides whether gold follows yields or safe-haven flows.",
+    tradeRisk: "Avoid treating pre-US-session drift as confirmed until the dollar and real-yield reaction is visible.",
+  },
+  {
+    id: "btc-etf-flow",
+    title: "US spot crypto ETF flow window",
+    category: "Crypto flows",
+    impact: "medium",
+    watchlists: ["btc"],
+    schedule: (now, end) => weekdayEtCandidates(now, end, 21, 15),
+    whyItMatters: "ETF flow updates can influence overnight BTC sentiment and the next US-session setup.",
+    tradeRisk: "Flow headlines matter more when price is testing a key liquidation or breakout level.",
+  },
+  {
+    id: "crypto-regulatory",
+    title: "Crypto regulatory and court docket window",
+    category: "Regulation",
+    impact: "medium",
+    watchlists: ["btc"],
+    schedule: (now, end) => [2, 4].flatMap((weekday) => weeklyEtCandidates(now, end, weekday, 10, 0)),
+    whyItMatters: "SEC, exchange, stablecoin, and court headlines can change risk appetite across BTC, ETH, COIN, and MSTR.",
+    tradeRisk: "Regulatory headlines can reverse quickly; look for confirmation in spot volume and ETF proxies.",
+  },
+  {
+    id: "weekend-crypto",
+    title: "Weekend crypto liquidity risk window",
+    category: "Liquidity",
+    impact: "medium",
+    watchlists: ["btc"],
+    schedule: (now, end) => [0, 6].flatMap((weekday) => weeklyUtcCandidates(now, end, weekday, 0, 0)),
+    whyItMatters: "Thinner weekend books can amplify liquidation cascades and macro/geopolitical headline reactions.",
+    tradeRisk: "Use wider thresholds; moves can be liquidity-driven rather than information-driven.",
+  },
+];
 
 const CATEGORY_RULES = [
   { id: "macro", label: "Macro", keywords: ["inflation", "cpi", "pce", "payrolls", "jobs", "jobless claims", "retail sales", "gdp"] },
@@ -1311,6 +1459,24 @@ function buildGroupedItems(items, watchlist, cappedLimit) {
     .map((cluster) => {
       const primary = cluster.primary;
       const uniqueSources = uniq(cluster.items.map((item) => item.sourceName)).length;
+      const bestSourceAuthority = cluster.items.reduce(
+        (best, item) => {
+          if ((item.sourceAuthorityScore || 0) > best.score) {
+            return {
+              score: item.sourceAuthorityScore || 0,
+              tier: item.sourceTier || "all",
+              label: item.sourceTierLabel || "all sources",
+            };
+          }
+
+          return best;
+        },
+        {
+          score: primary.sourceAuthorityScore || sourceAuthorityScore(primary.sourceName),
+          tier: primary.sourceTier || "all",
+          label: primary.sourceTierLabel || "all sources",
+        }
+      );
       const confirmationBonus = Math.min(3.6, Math.max(0, (uniqueSources - 1) * 1.05 + (cluster.items.length - 1) * 0.35));
       const groupedScore = Number((primary.score + confirmationBonus).toFixed(1));
       const groupedConfidence = computeConfidenceScore({
@@ -1336,6 +1502,9 @@ function buildGroupedItems(items, watchlist, cappedLimit) {
         confidence: groupedConfidence,
         confidenceBand: formatConfidenceBand(groupedConfidence),
         impact: formatImpact(groupedScore),
+        sourceAuthorityScore: bestSourceAuthority.score,
+        sourceTier: bestSourceAuthority.tier,
+        sourceTierLabel: bestSourceAuthority.label,
         combinedCount: cluster.items.length,
         combinedKey: primary.key,
         generatedSummary: createGeneratedSummary(primary),
@@ -1440,10 +1609,182 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function zonedParts(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+
+  return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+}
+
+function zonedTimeToDate(year, monthIndex, day, hour, minute, timeZone = NEW_YORK_TIME_ZONE) {
+  const utcGuess = Date.UTC(year, monthIndex, day, hour, minute, 0);
+  const parts = zonedParts(new Date(utcGuess), timeZone);
+  const observedAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second || 0);
+  return new Date(utcGuess - (observedAsUtc - utcGuess));
+}
+
+function monthReference(now, offset) {
+  const parts = zonedParts(now, NEW_YORK_TIME_ZONE);
+  const monthDate = new Date(Date.UTC(parts.year, parts.month - 1 + offset, 1, 12, 0, 0));
+  return {
+    year: monthDate.getUTCFullYear(),
+    monthIndex: monthDate.getUTCMonth(),
+  };
+}
+
+function nthWeekdayOfMonth(year, monthIndex, weekday, occurrence) {
+  const first = new Date(Date.UTC(year, monthIndex, 1, 12, 0, 0));
+  const offset = (weekday - first.getUTCDay() + 7) % 7;
+  return 1 + offset + (occurrence - 1) * 7;
+}
+
+function lastWeekdayOfMonth(year, monthIndex, weekday) {
+  const last = new Date(Date.UTC(year, monthIndex + 1, 0, 12, 0, 0));
+  const offset = (last.getUTCDay() - weekday + 7) % 7;
+  return last.getUTCDate() - offset;
+}
+
+function firstBusinessDayOfMonth(year, monthIndex) {
+  let day = 1;
+  while ([0, 6].includes(new Date(Date.UTC(year, monthIndex, day, 12, 0, 0)).getUTCDay())) {
+    day += 1;
+  }
+  return day;
+}
+
+function pushIfUpcoming(candidates, candidate, now, end) {
+  const time = candidate.getTime();
+  if (time > now.getTime() && time <= end.getTime()) {
+    candidates.push(candidate);
+  }
+}
+
+function monthlyEtCandidates(now, end, pickDay, hour, minute) {
+  const candidates = [];
+  for (let offset = 0; offset < 4; offset += 1) {
+    const reference = monthReference(now, offset);
+    const day = pickDay(reference);
+    pushIfUpcoming(candidates, zonedTimeToDate(reference.year, reference.monthIndex, day, hour, minute), now, end);
+  }
+  return candidates;
+}
+
+function weeklyEtCandidates(now, end, weekday, hour, minute) {
+  const candidates = [];
+  const days = Math.ceil((end.getTime() - now.getTime()) / 86_400_000) + 7;
+
+  for (let offset = 0; offset <= days; offset += 1) {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offset, 12, 0, 0));
+    if (date.getUTCDay() !== weekday) {
+      continue;
+    }
+
+    pushIfUpcoming(
+      candidates,
+      zonedTimeToDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), hour, minute),
+      now,
+      end
+    );
+  }
+
+  return candidates;
+}
+
+function weeklyUtcCandidates(now, end, weekday, hour, minute) {
+  const candidates = [];
+  const days = Math.ceil((end.getTime() - now.getTime()) / 86_400_000) + 7;
+
+  for (let offset = 0; offset <= days; offset += 1) {
+    const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offset, hour, minute, 0));
+    if (candidate.getUTCDay() === weekday) {
+      pushIfUpcoming(candidates, candidate, now, end);
+    }
+  }
+
+  return candidates;
+}
+
+function weekdayEtCandidates(now, end, hour, minute) {
+  return [1, 2, 3, 4, 5].flatMap((weekday) => weeklyEtCandidates(now, end, weekday, hour, minute));
+}
+
+function catalystImpactScore(impact) {
+  if (impact === "high") return 3;
+  if (impact === "medium") return 2;
+  return 1;
+}
+
+function getUpcomingCatalysts(watchlist, { hours = CATALYST_WINDOW_HOURS } = {}) {
+  const now = new Date();
+  const windowHours = clamp(Number(hours) || CATALYST_WINDOW_HOURS, 24, 336);
+  const end = new Date(now.getTime() + windowHours * 3_600_000);
+  const watchlistId = watchlist?.id || "xauusd";
+
+  const items = CATALYST_DEFINITIONS
+    .filter((definition) => definition.watchlists.includes(watchlistId))
+    .flatMap((definition) =>
+      definition.schedule(now, end).map((scheduledAt) => ({
+        id: `${definition.id}-${scheduledAt.toISOString()}`,
+        title: definition.title,
+        category: definition.category,
+        impact: definition.impact,
+        scheduledAt: scheduledAt.toISOString(),
+        watchlistId,
+        watchlistLabel: watchlist?.label || watchlistId.toUpperCase(),
+        sourceLabel: "Desk catalyst model",
+        whyItMatters: definition.whyItMatters,
+        tradeRisk: definition.tradeRisk,
+        impactScore: catalystImpactScore(definition.impact),
+      }))
+    )
+    .sort((left, right) => {
+      const timeDiff = Date.parse(left.scheduledAt) - Date.parse(right.scheduledAt);
+      if (timeDiff !== 0) return timeDiff;
+      return right.impactScore - left.impactScore;
+    })
+    .slice(0, CATALYST_MAX_ITEMS);
+
+  return {
+    generatedAt: now.toISOString(),
+    windowHours,
+    watchlistId,
+    watchlistLabel: watchlist?.label || watchlistId.toUpperCase(),
+    sourceLabel: "Desk catalyst model",
+    disclaimer: "Estimated scheduled risk windows, not an official economic calendar.",
+    items,
+  };
+}
+
 function sourceAuthorityScore(sourceName) {
   const source = String(sourceName || "");
   const matched = SOURCE_QUALITY_RULES.find((rule) => rule.pattern.test(source));
   return matched ? matched.score : 0.9;
+}
+
+function sourceAuthorityMeta(sourceName) {
+  const score = sourceAuthorityScore(sourceName);
+
+  if (score >= 2.4) {
+    return { score, tier: "top", label: "top tier" };
+  }
+
+  if (score >= 2.0) {
+    return { score, tier: "trusted", label: "trusted" };
+  }
+
+  if (score >= 1.5) {
+    return { score, tier: "established", label: "established" };
+  }
+
+  return { score, tier: "all", label: "all sources" };
 }
 
 function recencyScore(publishedAt) {
@@ -1530,6 +1871,132 @@ function inferBias(text) {
   return bullish > bearish ? "bullish" : "bearish";
 }
 
+function itemTimestamp(item) {
+  const publishedTime = Date.parse(item?.publishedAt || "");
+  if (Number.isFinite(publishedTime) && publishedTime > 0) {
+    return publishedTime;
+  }
+
+  const firstSeenTime = Date.parse(item?.firstSeenAt || "");
+  if (Number.isFinite(firstSeenTime) && firstSeenTime > 0) {
+    return firstSeenTime;
+  }
+
+  return 0;
+}
+
+function normalizeMaxAgeHours(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 12;
+  }
+
+  return clamp(parsed, 1, 48);
+}
+
+function normalizeSignalMode(value) {
+  const mode = String(value || "realtime").toLowerCase();
+  if (["realtime", "balanced", "broad"].includes(mode)) {
+    return mode;
+  }
+
+  return "realtime";
+}
+
+function normalizeSourceMode(value) {
+  const mode = String(value || "established").toLowerCase();
+  if (["all", "established", "trusted", "top"].includes(mode)) {
+    return mode;
+  }
+
+  return "established";
+}
+
+function normalizeTradingMode(value) {
+  const mode = String(value || "tradeable").toLowerCase();
+  if (["tradeable", "support", "all"].includes(mode)) {
+    return mode;
+  }
+
+  return "tradeable";
+}
+
+function matchesTimeliness(item, maxAgeHours) {
+  const timestamp = itemTimestamp(item);
+  if (!timestamp) {
+    return true;
+  }
+
+  return Date.now() - timestamp <= normalizeMaxAgeHours(maxAgeHours) * 3_600_000;
+}
+
+function matchesSignalMode(item, signalMode) {
+  const mode = normalizeSignalMode(signalMode);
+
+  if (mode === "broad") {
+    return true;
+  }
+
+  if (mode === "balanced") {
+    return Boolean(
+      item.eventDriven ||
+        item.impact !== "low" ||
+        Number(item.confidence || 0) >= 58 ||
+        Number(item.combinedCount || 1) > 1
+    );
+  }
+
+  return Boolean(
+    item.eventDriven &&
+      item.urgency !== "background" &&
+      (item.impact !== "low" || Number(item.confidence || 0) >= 62 || Number(item.combinedCount || 1) > 1)
+  );
+}
+
+function matchesSourceMode(item, sourceMode) {
+  const mode = normalizeSourceMode(sourceMode);
+  const score = Number(item.sourceAuthorityScore || 0);
+
+  if (mode === "all") {
+    return true;
+  }
+
+  if (mode === "top") {
+    return score >= 2.4;
+  }
+
+  if (mode === "trusted") {
+    return score >= 2.0;
+  }
+
+  return score >= 1.5;
+}
+
+function matchesTradingUsefulness(item, tradingMode) {
+  const mode = normalizeTradingMode(tradingMode);
+
+  if (mode === "all") {
+    return true;
+  }
+
+  const sourceScore = Number(item.sourceAuthorityScore || 0);
+  const hasAssetLink = (item.symbols || []).length > 0 || (item.categories || []).length > 0;
+  const hasDecisionSignal =
+    item.eventDriven || item.impact !== "low" || Number(item.confidence || 0) >= 58 || Number(item.combinedCount || 1) > 1;
+
+  if (mode === "support") {
+    return Boolean(sourceScore >= 1.5 && hasAssetLink && hasDecisionSignal);
+  }
+
+  return Boolean(
+    sourceScore >= 1.5 &&
+      hasAssetLink &&
+      item.urgency !== "background" &&
+      (item.eventDriven || item.impact === "high") &&
+      (Number(item.confidence || 0) >= 62 || Number(item.combinedCount || 1) > 1 || item.impact === "high")
+  );
+}
+
 function analyzeItem(rawItem, watchlist) {
   const split = splitSourceFromTitle(rawItem.title, rawItem.sourceFeed);
   const text = `${split.cleanTitle} ${rawItem.description}`.toLowerCase();
@@ -1542,7 +2009,8 @@ function analyzeItem(rawItem, watchlist) {
   const urgentHits = countMatches(text, URGENT_KEYWORDS);
   const eventDriven = isMarketMovingEvent(split.cleanTitle, rawItem.description, categories, matchedFocus);
   const explainPenalty = explainerPenalty(split.cleanTitle, rawItem.description, categories, matchedFocus);
-  const sourceQuality = sourceAuthorityScore(split.sourceName || rawItem.sourceFeed);
+  const sourceAuthority = sourceAuthorityMeta(split.sourceName || rawItem.sourceFeed);
+  const sourceQuality = sourceAuthority.score;
   const recency = recencyScore(rawItem.publishedAt);
   const affinity = watchlistAffinityScore(watchlist, symbols, matchedFocus, categories);
   const lowSignal = lowSignalPenalty(split.cleanTitle, text, categories, matchedFocus);
@@ -1603,6 +2071,9 @@ function analyzeItem(rawItem, watchlist) {
     impact,
     urgency,
     bias,
+    sourceAuthorityScore: sourceAuthority.score,
+    sourceTier: sourceAuthority.tier,
+    sourceTierLabel: sourceAuthority.label,
     eventDriven,
     watchlistId: watchlist.id,
     categories,
@@ -1642,9 +2113,25 @@ class NewsMonitor {
     this.intervalHandle = null;
   }
 
+  pruneExpiredItems(now = Date.now()) {
+    const retainedItems = this.items.filter((item) => {
+      const timestamp = itemTimestamp(item);
+      return !timestamp || now - timestamp < ITEM_RETENTION_MS;
+    });
+
+    if (retainedItems.length === this.items.length) {
+      return;
+    }
+
+    this.items = retainedItems;
+    this.seenKeys = new Set(this.items.map((item) => item.key));
+    this.detailCache = new Map();
+  }
+
   async refresh() {
     if (this.inFlight) return this.inFlight;
 
+    this.pruneExpiredItems();
     this.lastCheckedAt = new Date().toISOString();
 
     this.inFlight = Promise.all(
@@ -1695,6 +2182,8 @@ class NewsMonitor {
           })
           .slice(0, MAX_ITEMS);
 
+        this.pruneExpiredItems(now);
+
         this.lastSuccessfulPollAt = new Date().toISOString();
         this.lastError = "";
       })
@@ -1709,6 +2198,7 @@ class NewsMonitor {
   }
 
   getStatus() {
+    this.pruneExpiredItems();
     const now = Date.now();
     const newCount = this.items.filter((item) => now - Date.parse(item.firstSeenAt || 0) < this.pollMs * 2).length;
 
@@ -1728,9 +2218,21 @@ class NewsMonitor {
     };
   }
 
-  getItems({ limit = 24, minScore = 4 } = {}) {
+  getItems({
+    limit = MAX_ITEMS,
+    minScore = 4,
+    maxAgeHours = 12,
+    signalMode = "realtime",
+    sourceMode = "established",
+    tradingMode = "tradeable",
+  } = {}) {
+    this.pruneExpiredItems();
     const threshold = Number(minScore) || 0;
-    const cappedLimit = Math.min(Math.max(Number(limit) || 24, 1), 60);
+    const cappedLimit = Math.min(Math.max(Number(limit) || MAX_ITEMS, 1), MAX_ITEMS);
+    const normalizedMaxAgeHours = normalizeMaxAgeHours(maxAgeHours);
+    const normalizedSignalMode = normalizeSignalMode(signalMode);
+    const normalizedSourceMode = normalizeSourceMode(sourceMode);
+    const normalizedTradingMode = normalizeTradingMode(tradingMode);
 
     const stagedItems = this.items
       .map((item) => ({
@@ -1740,10 +2242,15 @@ class NewsMonitor {
 
     return buildGroupedItems(stagedItems, this.watchlist, MAX_ITEMS)
       .filter((item) => item.score >= threshold)
+      .filter((item) => matchesTimeliness(item, normalizedMaxAgeHours))
+      .filter((item) => matchesSignalMode(item, normalizedSignalMode))
+      .filter((item) => matchesSourceMode(item, normalizedSourceMode))
+      .filter((item) => matchesTradingUsefulness(item, normalizedTradingMode))
       .slice(0, cappedLimit);
   }
 
   findItem(key) {
+    this.pruneExpiredItems();
     return this.items.find((item) => item.key === key) || null;
   }
 
@@ -1825,6 +2332,10 @@ class NewsService {
     this.monitors.forEach((monitor) => monitor.start());
   }
 
+  stop() {
+    this.monitors.forEach((monitor) => monitor.stop());
+  }
+
   getWatchlists() {
     return Object.values(WATCHLISTS).map((watchlist) => ({
       id: watchlist.id,
@@ -1844,6 +2355,11 @@ class NewsService {
 
   getItems(id, options) {
     return this.getMonitor(id).getItems(options);
+  }
+
+  getCatalysts(id, options) {
+    const monitor = this.getMonitor(id);
+    return getUpcomingCatalysts(monitor.watchlist, options);
   }
 
   async refresh(id) {

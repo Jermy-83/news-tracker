@@ -1,11 +1,19 @@
 # newstracker
 
-Private market news tracker app.
+Private market news tracker desktop app.
 
-## Run locally
+## Run the desktop app
 
 ```powershell
-node server.js
+npm start
+```
+
+This launches the local server and opens the app in a desktop window.
+
+## Run in web mode
+
+```powershell
+npm run start:web
 ```
 
 Then open:

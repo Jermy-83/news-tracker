@@ -3,7 +3,42 @@
   "private": true,
   "version": "1.0.0",
   "description": "Private market news tracker app",
+  "main": "electron/main.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "electron .",
+    "start:desktop": "electron .",
+    "start:web": "node server.js",
+    "build:win": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.boiki.marketintelligencedesk",
+    "productName": "Market Intelligence Desk",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "index.html",
+      "news-app.js",
+      "news-monitor.js",
+      "server.js",
+      "styles.css",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "electron-builder": "^26.0.12"
   }
 }
