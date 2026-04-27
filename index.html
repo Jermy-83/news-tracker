@@ -29,7 +29,7 @@
           <div class="eyebrow">Live Market Intelligence</div>
           <h1>Market Intelligence Desk</h1>
           <p class="mastheadLead">
-            Filter for timeliness, signal quality, and score. Scan the list, confirm the read, and open the selected
+            Filter for timeliness, signal quality, and impact score. Scan the list, confirm the read, and open the selected
             item with cleaner context before you click through to the source.
           </p>
           <div class="mastheadActions">
@@ -76,46 +76,33 @@
               <select id="newsWatchlistSelect"></select>
             </label>
             <label id="newsMinScoreField" class="field scoreField">
-              <span>Minimum score</span>
+              <span>Minimum impact</span>
               <span id="newsMinScoreDot" class="scoreFieldDot" hidden></span>
               <select id="newsMinScoreSelect">
-                <option value="8">8+ Broad view</option>
-                <option value="12" selected>12+ Focused</option>
-                <option value="16">16+ Only strongest</option>
+                <option value="6" selected>6+ Wider tape</option>
+                <option value="10">10+ Focused</option>
+                <option value="16">16+ Highest impact</option>
               </select>
             </label>
             <label class="field">
               <span>Timeliness</span>
               <select id="newsTimelinessSelect">
                 <option value="4">4h Live tape</option>
-                <option value="12" selected>12h Intraday</option>
-                <option value="24">24h Broad</option>
+                <option value="12">12h Intraday</option>
+                <option value="24" selected>24h Broad</option>
                 <option value="48">48h Context</option>
               </select>
             </label>
             <label class="field">
-              <span>Signal mode</span>
-              <select id="newsSignalSelect">
-                <option value="realtime" selected>Real-time only</option>
-                <option value="balanced">Balanced</option>
-                <option value="broad">Broader context</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Source quality</span>
-              <select id="newsSourceSelect">
-                <option value="all">All sources</option>
-                <option value="established" selected>Established+</option>
-                <option value="trusted">Trusted+</option>
-                <option value="top">Top tier only</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Trading usefulness</span>
-              <select id="newsTradingSelect">
-                <option value="tradeable" selected>Tradeable now</option>
-                <option value="support">Decision support</option>
-                <option value="all">All filtered</option>
+              <span>Purpose</span>
+              <select id="newsTypeSelect">
+                <option value="moving" selected>Market-moving now</option>
+                <option value="catalyst">Upcoming/event news</option>
+                <option value="gold">Gold/XAUUSD only</option>
+                <option value="usdRates">USD / Fed / yields</option>
+                <option value="geopolitics">Geopolitical risk</option>
+                <option value="clean">Ignore low-value</option>
+                <option value="all">All useful news</option>
               </select>
             </label>
             <label class="field">
@@ -123,7 +110,7 @@
               <select id="newsSortSelect">
                 <option value="latest" selected>Latest first</option>
                 <option value="oldest">Oldest first</option>
-                <option value="score">Highest score</option>
+                <option value="score">Highest impact</option>
                 <option value="confidence">Highest confidence</option>
                 <option value="sourceCount">Most sources</option>
               </select>
@@ -177,6 +164,17 @@
           </article>
 
           <div class="radarSidebar">
+            <article class="chartCard marketReactionCard">
+              <div class="chartMeta">
+                <div>
+                  <strong>XAUUSD live market</strong>
+                  <p id="marketReactionSummary" class="muted">Loading current XAUUSD quote...</p>
+                </div>
+              </div>
+              <div id="marketReactionBias" class="marketReactionBias">Waiting for market data...</div>
+              <div id="marketReactionGrid" class="marketReactionGrid"></div>
+            </article>
+
             <article class="chartCard radarDetailCard">
               <div class="chartMeta">
                 <div>
@@ -193,6 +191,7 @@
               </p>
               <p id="newsDetailMeaning" class="newsMeaning muted">The overall takeaway will appear here.</p>
               <div id="newsDetailWhy" class="newsWhy">Trading context will appear here.</div>
+              <div id="newsDetailReaction" class="newsPriceReaction">Price reaction will appear after a headline is selected.</div>
               <div id="newsDetailReferences" class="newsReferences"></div>
               <div id="newsDetailTags" class="newsTags"></div>
             </article>
@@ -228,8 +227,8 @@
                 </div>
               </div>
               <div class="embedNotice">
-                Desk-generated catalyst map for scheduled risk windows. This is separate from FinancialJuice and is
-                designed to show what may matter next for the active watchlist.
+                Multi-source XAUUSD catalyst view using live calendar data, official release references, and desk
+                impact scoring in one merged tape.
               </div>
               <div id="newsCatalystSummary" class="catalystSummary">Waiting for catalyst data...</div>
               <div id="newsCatalystList" class="catalystList"></div>

@@ -4,9 +4,7 @@
   const minScoreDot = document.getElementById("newsMinScoreDot");
   const minScoreSelect = document.getElementById("newsMinScoreSelect");
   const timelinessSelect = document.getElementById("newsTimelinessSelect");
-  const signalSelect = document.getElementById("newsSignalSelect");
-  const sourceSelect = document.getElementById("newsSourceSelect");
-  const tradingSelect = document.getElementById("newsTradingSelect");
+  const newsTypeSelect = document.getElementById("newsTypeSelect");
   const sortSelect = document.getElementById("newsSortSelect");
   const refreshBtn = document.getElementById("newsRefreshBtn");
   const statusPill = document.getElementById("newsStatusPill");
@@ -29,11 +27,15 @@
   const detailSummary = document.getElementById("newsDetailSummary");
   const detailMeaning = document.getElementById("newsDetailMeaning");
   const detailWhy = document.getElementById("newsDetailWhy");
+  const detailReaction = document.getElementById("newsDetailReaction");
   const detailReferences = document.getElementById("newsDetailReferences");
   const detailTags = document.getElementById("newsDetailTags");
   const detailSourceLink = document.getElementById("newsDetailSourceLink");
   const bullishProb = document.getElementById("newsBullishProb");
   const bearishProb = document.getElementById("newsBearishProb");
+  const marketReactionSummary = document.getElementById("marketReactionSummary");
+  const marketReactionBias = document.getElementById("marketReactionBias");
+  const marketReactionGrid = document.getElementById("marketReactionGrid");
   const catalystWindowLabel = document.getElementById("newsCatalystWindowLabel");
   const catalystSummary = document.getElementById("newsCatalystSummary");
   const catalystList = document.getElementById("newsCatalystList");
@@ -41,20 +43,89 @@
   const CLIENT_RETRY_MS = 15_000;
   const CLIENT_MIN_DELAY_MS = 10_000;
   const CLIENT_MAX_DELAY_MS = 180_000;
+  const MARKET_REACTION_POLL_MS = 5_000;
 
-  if (!watchlistSelect || !listRoot || !sortSelect || !timelinessSelect || !signalSelect || !sourceSelect || !tradingSelect) return;
+  if (!watchlistSelect || !listRoot || !sortSelect || !timelinessSelect || !newsTypeSelect) return;
+
+  function newsTypeModes(newsType) {
+    if (newsType === "catalyst") {
+      return {
+        signalMode: "balanced",
+        sourceMode: "established",
+        tradingMode: "catalyst",
+        label: "upcoming/event news",
+      };
+    }
+
+    if (newsType === "gold") {
+      return {
+        signalMode: "balanced",
+        sourceMode: "established",
+        tradingMode: "gold",
+        label: "gold/XAUUSD only",
+      };
+    }
+
+    if (newsType === "usdRates") {
+      return {
+        signalMode: "balanced",
+        sourceMode: "established",
+        tradingMode: "usd-rates",
+        label: "USD / Fed / yields",
+      };
+    }
+
+    if (newsType === "geopolitics") {
+      return {
+        signalMode: "balanced",
+        sourceMode: "established",
+        tradingMode: "geopolitics",
+        label: "geopolitical risk",
+      };
+    }
+
+    if (newsType === "clean") {
+      return {
+        signalMode: "balanced",
+        sourceMode: "trusted",
+        tradingMode: "clean",
+        label: "low-noise trading news",
+      };
+    }
+
+    if (newsType === "all") {
+      return {
+        signalMode: "broad",
+        sourceMode: "established",
+        tradingMode: "support",
+        label: "all useful news",
+      };
+    }
+
+    return {
+      signalMode: "realtime",
+      sourceMode: "established",
+      tradingMode: "market-moving",
+      label: "market-moving now",
+    };
+  }
+
+  const initialNewsType = newsTypeSelect.value || "moving";
+  const initialModes = newsTypeModes(initialNewsType);
 
   const state = {
     watchlists: [],
     watchlistId: "xauusd",
-    minScore: Number(minScoreSelect.value || 12),
+    minScore: Number(minScoreSelect.value || 6),
     maxAgeHours: Number(timelinessSelect.value || 12),
-    signalMode: signalSelect.value || "realtime",
-    sourceMode: sourceSelect.value || "established",
-    tradingMode: tradingSelect.value || "tradeable",
+    newsType: initialNewsType,
+    signalMode: initialModes.signalMode,
+    sourceMode: initialModes.sourceMode,
+    tradingMode: initialModes.tradingMode,
     status: null,
     items: [],
     catalysts: null,
+    marketReaction: null,
     selectedKey: "",
     detailCache: {},
     readFreshKeys: loadReadFreshKeys(),
@@ -62,6 +133,7 @@
     listMode: "visible",
     sortMode: sortSelect.value || "latest",
     timerHandle: null,
+    marketTimerHandle: null,
     initialized: false,
   };
 
@@ -194,6 +266,12 @@
       return;
     }
 
+    if ((status.feedErrors || []).length > 0) {
+      statusPill.classList.add("wait");
+      statusPill.textContent = "Partial feeds";
+      return;
+    }
+
     if (status.newItemCount > 0) {
       statusPill.classList.add("bullish");
       statusPill.textContent = `${status.newItemCount} fresh item${status.newItemCount === 1 ? "" : "s"}`;
@@ -237,24 +315,20 @@
     feedCount.textContent = String(status.feedCount || 0);
     freshCount.textContent = String(status.newItemCount || 0);
     lastCheckLabel.textContent = formatRelativeTime(status.lastSuccessfulPollAt || status.lastCheckedAt);
-    const modeLabel =
-      state.signalMode === "realtime" ? "real-time only" : state.signalMode === "balanced" ? "balanced" : "broader context";
-    const sourceLabel =
-      state.sourceMode === "top"
-        ? "top-tier sources"
-        : state.sourceMode === "trusted"
-          ? "trusted+ sources"
-          : state.sourceMode === "all"
-            ? "all sources"
-            : "established+ sources";
-    const tradingLabel =
-      state.tradingMode === "tradeable" ? "tradeable now" : state.tradingMode === "support" ? "decision support" : "all filtered";
-    feedSummary.textContent = `${status.feedCount} feeds, polling every ${Math.round(status.pollMs / 1000)}s. Showing ${state.maxAgeHours}h ${modeLabel} headlines from ${sourceLabel} in ${tradingLabel} mode. Keeping ${status.totalItems} tracked headlines in memory. Last successful check ${formatRelativeTime(status.lastSuccessfulPollAt)}.`;
+    const newsTypeLabel = newsTypeModes(state.newsType).label;
+    const feedErrorCount = (status.feedErrors || []).length;
+    const healthyFeedCount = Math.max(0, (status.feedCount || 0) - feedErrorCount);
+    feedSummary.textContent = `${healthyFeedCount}/${status.feedCount} feeds healthy, polling every ${Math.round(status.pollMs / 1000)}s. Showing ${state.maxAgeHours}h ${newsTypeLabel}. Keeping ${status.totalItems} tracked headlines in memory. Last successful check ${formatRelativeTime(status.lastSuccessfulPollAt)}.`;
     renderFeedList(status);
 
-    errorBox.hidden = !status.lastError;
+    errorBox.hidden = !status.lastError && feedErrorCount === 0;
     errorBox.textContent = status.lastError
       ? `Feed fetch error: ${status.lastError}. The app is still running, but outbound network may be blocked.`
+      : feedErrorCount
+        ? `Partial feed warning: ${status.feedErrors
+            .slice(0, 4)
+            .map((feedError) => feedError.label)
+            .join(", ")} did not load. Other feeds are still active.`
       : "";
   }
 
@@ -266,21 +340,28 @@
     const payload = state.catalysts || {};
     const items = Array.isArray(payload.items) ? payload.items : [];
     const highImpactCount = items.filter((item) => item.impact === "high").length;
+    const hasCatalystError = Boolean(payload.sourceError);
 
     clear(catalystList);
     catalystWindowLabel.textContent = `${payload.watchlistLabel || "Active watchlist"} | next ${
       payload.windowHours || 168
-    }h | separate from FinancialJuice`;
+    }h | multi-source calendar`;
     catalystSummary.textContent = items.length
-      ? `${items.length} scheduled risk windows, including ${highImpactCount} high-impact catalyst${
+      ? `${items.length} XAUUSD risk windows, including ${highImpactCount} high-impact catalyst${
           highImpactCount === 1 ? "" : "s"
-        }. ${payload.disclaimer || "Estimated scheduled risk windows."}`
-      : "No catalyst windows found for the selected watchlist.";
+        }. Sources merged: ${(payload.sourceNames || []).slice(0, 5).join(", ") || payload.sourceLabel || "calendar model"}. ${
+          payload.sourceError ? `Calendar warning: ${payload.sourceError}. ` : ""
+        }${payload.disclaimer || "Merged scheduled risk windows."}`
+      : hasCatalystError
+        ? `Catalyst panel unavailable: ${payload.sourceError}.`
+        : "No catalyst windows found for the selected watchlist.";
 
     if (!items.length) {
       const empty = document.createElement("div");
       empty.className = "catalystEmpty";
-      empty.textContent = "No upcoming catalyst windows in this model yet.";
+      empty.textContent = hasCatalystError
+        ? "Catalyst data is temporarily unavailable."
+        : "No upcoming catalyst windows in this model yet.";
       catalystList.appendChild(empty);
       return;
     }
@@ -306,12 +387,29 @@
       title.className = "catalystTitle";
       title.textContent = item.title;
       const impact = createTag(`${item.impact || "medium"} impact`, item.impact || "medium");
+      const status = createTag(item.status === "live" ? "live now" : item.status === "recent" ? "occurred" : "upcoming", item.status || "watch");
       header.appendChild(title);
+      header.appendChild(status);
       header.appendChild(impact);
 
       const meta = document.createElement("div");
       meta.className = "catalystMeta";
-      meta.textContent = `${item.category || "Catalyst"} | ${item.sourceLabel || "Desk catalyst model"}`;
+      meta.textContent = `${item.country ? `${item.country} | ` : ""}${item.category || "Catalyst"} | ${
+        item.sourceLabel || "Multi-source calendar"
+      }`;
+
+      const values = document.createElement("div");
+      values.className = "catalystValues";
+      if (item.forecast) {
+        const forecast = document.createElement("span");
+        forecast.textContent = `Forecast ${item.forecast}`;
+        values.appendChild(forecast);
+      }
+      if (item.previous) {
+        const previous = document.createElement("span");
+        previous.textContent = `Previous ${item.previous}`;
+        values.appendChild(previous);
+      }
 
       const reason = document.createElement("p");
       reason.className = "catalystReason";
@@ -321,14 +419,159 @@
       risk.className = "catalystRisk";
       risk.textContent = item.tradeRisk || "Use timing as a risk-control marker.";
 
+      const marketRead = document.createElement("p");
+      marketRead.className = `catalystMarketRead ${item.status || "upcoming"}`;
+      marketRead.textContent = item.marketImpactRead || "";
+
+      const sources = document.createElement("div");
+      sources.className = "catalystSources";
+      (item.sources || []).slice(0, 4).forEach((source) => {
+        if (!source.url) {
+          const chip = document.createElement("span");
+          chip.className = "catalystSourceChip";
+          chip.textContent = source.label;
+          sources.appendChild(chip);
+          return;
+        }
+
+        const link = document.createElement("a");
+        link.className = "catalystSourceChip";
+        link.href = source.url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.textContent = source.label;
+        sources.appendChild(link);
+      });
+
       body.appendChild(header);
       body.appendChild(meta);
+      if (values.childNodes.length) {
+        body.appendChild(values);
+      }
       body.appendChild(reason);
       body.appendChild(risk);
+      if (marketRead.textContent) {
+        body.appendChild(marketRead);
+      }
+      if (sources.childNodes.length) {
+        body.appendChild(sources);
+      }
+      if ((item.relatedNews || []).length) {
+        const related = document.createElement("div");
+        related.className = "catalystRelated";
+        const relatedTitle = document.createElement("strong");
+        relatedTitle.textContent = "News after event";
+        related.appendChild(relatedTitle);
+
+        item.relatedNews.forEach((news) => {
+          const link = document.createElement("a");
+          link.className = "catalystRelatedLink";
+          link.href = news.link;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          link.textContent = `${news.sourceName || "source"}: ${news.title}`;
+
+          const time = document.createElement("span");
+          time.textContent = formatRelativeTime(news.publishedAt);
+
+          const row = document.createElement("div");
+          row.className = "catalystRelatedRow";
+          row.appendChild(link);
+          row.appendChild(time);
+          related.appendChild(row);
+        });
+
+        body.appendChild(related);
+      }
       card.appendChild(timeBlock);
       card.appendChild(body);
       catalystList.appendChild(card);
     });
+  }
+
+  function renderMarketReaction() {
+    if (!marketReactionSummary || !marketReactionBias || !marketReactionGrid) {
+      return;
+    }
+
+    const payload = state.marketReaction || {};
+    const reaction = payload.reaction || {};
+    const items = Array.isArray(payload.items) ? payload.items : [];
+
+    clear(marketReactionGrid);
+    marketReactionSummary.textContent = items.length
+      ? `${payload.sourceLabel || "Market data"} | ${formatRelativeTime(payload.generatedAt)}`
+      : "Waiting for live market data...";
+    marketReactionBias.className = `marketReactionBias ${reaction.bias || "mixed"}`;
+    marketReactionBias.innerHTML = "";
+
+    const title = document.createElement("strong");
+    title.textContent = reaction.title || "Waiting for confirmation";
+    const summary = document.createElement("span");
+    summary.textContent = reaction.summary || "The market reaction read will appear when prices load.";
+    marketReactionBias.appendChild(title);
+    marketReactionBias.appendChild(summary);
+
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "marketReactionEmpty";
+      empty.textContent = (payload.errors || []).length
+        ? `Market data issue: ${payload.errors.map((error) => error.label).join(", ")} did not load.`
+        : "No market data available yet.";
+      marketReactionGrid.appendChild(empty);
+      return;
+    }
+
+    items.forEach((item) => {
+      const card = document.createElement("div");
+      card.className = `marketReactionItem ${item.move || "flat"}`;
+
+      const top = document.createElement("div");
+      top.className = "marketReactionTop";
+      const label = document.createElement("span");
+      label.textContent = item.label;
+      const move = document.createElement("strong");
+      move.textContent = item.displayChange;
+      top.appendChild(label);
+      top.appendChild(move);
+
+      const price = document.createElement("div");
+      price.className = "marketReactionPrice";
+      price.textContent = item.displayPrice;
+
+      const role = document.createElement("div");
+      role.className = "marketReactionRole";
+      role.textContent = item.role === "yield" ? "rates driver" : item.role === "dollar" ? "dollar driver" : item.role;
+
+      card.appendChild(top);
+      card.appendChild(price);
+      card.appendChild(role);
+      marketReactionGrid.appendChild(card);
+    });
+  }
+
+  async function loadMarketReaction() {
+    try {
+      const marketResponse = await fetchJson(`/api/market/reaction?watchlist=${encodeURIComponent(state.watchlistId)}`);
+      state.marketReaction = marketResponse.reaction || null;
+    } catch (error) {
+      state.marketReaction = {
+        items: [],
+        errors: [
+          {
+            label: "Market reaction",
+            error: error instanceof Error ? error.message : String(error),
+          },
+        ],
+        reaction: {
+          bias: "mixed",
+          title: "Market data unavailable",
+          summary: "Price confirmation could not be loaded.",
+        },
+      };
+    }
+
+    renderMarketReaction();
   }
 
   function createTag(label, className) {
@@ -336,6 +579,49 @@
     tag.className = `tagPill ${className}`.trim();
     tag.textContent = label;
     return tag;
+  }
+
+  function actionabilityMeta(item) {
+    const score = Number(item?.score) || 0;
+    const confidence = Number(item?.confidence) || 0;
+    const isFresh = Boolean(item?.isFresh);
+    const sourceCount = Number(item?.combinedCount) || 1;
+    const impact = item?.impact || "low";
+    const urgency = item?.urgency || "background";
+    const bias = item?.bias || "mixed";
+
+    if (
+      isFresh &&
+      impact === "high" &&
+      urgency === "immediate" &&
+      confidence >= 68 &&
+      score >= 10 &&
+      bias !== "mixed"
+    ) {
+      return {
+        label: "Trade now",
+        className: "bullish",
+        summary: "Fresh, high-impact headline with enough signal to act on immediately.",
+      };
+    }
+
+    if (
+      (impact === "high" || score >= 8 || urgency === "immediate" || sourceCount > 1) &&
+      confidence >= 50 &&
+      urgency !== "background"
+    ) {
+      return {
+        label: "Wait for confirmation",
+        className: "watch",
+        summary: "Relevant headline, but price confirmation or broader follow-through still matters.",
+      };
+    }
+
+    return {
+      label: "Background only",
+      className: "low",
+      summary: "Useful context, but not strong enough for an immediate trade decision.",
+    };
   }
 
   function sourceTierTagClass(item) {
@@ -548,7 +834,11 @@
       detailMeta.textContent = "Waiting for the first headline...";
       detailSummary.textContent = "Once live headlines load, click any row on the left to read its trading context here.";
       detailMeaning.textContent = "The overall takeaway will appear here.";
-      detailWhy.textContent = "Trading context will appear here.";
+      detailWhy.textContent = "Why it matters: Trading context will appear here.";
+      if (detailReaction) {
+        detailReaction.className = "newsPriceReaction";
+        detailReaction.textContent = "Price reaction will appear after a headline is selected.";
+      }
       detailSourceLink.href = "#";
       detailSourceLink.textContent = "source";
       detailSourceLink.setAttribute("aria-disabled", "true");
@@ -557,10 +847,16 @@
 
     detailTitle.textContent = item.title;
     detailMeta.textContent =
-      `${item.sourceName} | ${formatStamp(item.publishedAt || item.firstSeenAt)} | Score ${item.score} | Confidence ${item.confidence ?? 50}%`;
+      `${item.sourceName} | ${formatStamp(item.publishedAt || item.firstSeenAt)} | Impact Score ${item.score} | Confidence ${item.confidence ?? 50}%`;
     detailSummary.textContent = "Loading article summary...";
     detailMeaning.textContent = "Loading overall takeaway...";
-    detailWhy.textContent = item.whyItMatters || "Matched the active watchlist and impact filter.";
+    detailWhy.textContent = `Why it matters: ${
+      item.whyItMatters || "Useful because it can affect the active watchlist through rates, risk appetite, or asset-specific flow."
+    }`;
+    if (detailReaction) {
+      detailReaction.className = "newsPriceReaction loading";
+      detailReaction.textContent = "Checking price reaction since this headline...";
+    }
     detailSourceLink.href = item.link;
     detailSourceLink.textContent = item.sourceName || "Open article";
     detailSourceLink.removeAttribute("aria-disabled");
@@ -568,6 +864,8 @@
     detailTags.appendChild(createTag(`${item.impact} impact`, item.impact));
     detailTags.appendChild(createTag(`${item.confidenceBand || "medium"} confidence`, item.confidenceBand || "medium"));
     detailTags.appendChild(createTag(item.sourceTierLabel || "all sources", sourceTierTagClass(item)));
+    const actionability = actionabilityMeta(item);
+    detailTags.appendChild(createTag(actionability.label, actionability.className));
     if ((item.combinedCount || 1) > 1) {
       detailTags.appendChild(createTag(`${item.combinedCount} sources`, "watch"));
     }
@@ -583,6 +881,93 @@
     });
 
     loadDetail(item).catch(() => {});
+    loadHeadlineReaction(item).catch(() => {});
+  }
+
+  function renderHeadlineReaction(payload, item) {
+    if (!detailReaction || state.selectedKey !== item.key) {
+      return;
+    }
+
+    const reaction = payload?.reaction || {};
+    const instruments = Array.isArray(reaction.instruments) ? reaction.instruments : [];
+
+    detailReaction.className = `newsPriceReaction ${reaction.confirmation || "mixed"}`;
+    detailReaction.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "newsPriceReactionHead";
+    const title = document.createElement("strong");
+    title.textContent = reaction.title || "Price reaction unavailable";
+    const statePill = document.createElement("span");
+    statePill.className = `newsPriceReactionState ${reaction.confirmation || "mixed"}`;
+    statePill.textContent =
+      reaction.confirmation === "bullish"
+        ? "Confirming"
+        : reaction.confirmation === "bearish"
+          ? "Confirming"
+          : reaction.confirmation === "conflict"
+            ? "Conflicting"
+            : "Still forming";
+    head.appendChild(title);
+    head.appendChild(statePill);
+
+    const summary = document.createElement("p");
+    summary.className = "newsPriceReactionSummary";
+    summary.textContent = reaction.summary || "Not enough market data is available for this headline yet.";
+
+    detailReaction.appendChild(head);
+    detailReaction.appendChild(summary);
+
+    if (!instruments.length) {
+      return;
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "newsPriceReactionGrid";
+    instruments.slice(0, 3).forEach((instrument) => {
+      const row = document.createElement("div");
+      row.className = `newsPriceReactionRow ${instrument.move || "flat"}`;
+
+      const label = document.createElement("span");
+      label.className = "newsPriceReactionLabel";
+      label.textContent = instrument.label;
+
+      const move = document.createElement("strong");
+      move.className = "newsPriceReactionValue";
+      move.textContent = instrument.displayChange;
+
+      row.appendChild(label);
+      row.appendChild(move);
+      grid.appendChild(row);
+    });
+
+    detailReaction.appendChild(grid);
+  }
+
+  async function loadHeadlineReaction(item) {
+    if (!detailReaction) {
+      return;
+    }
+
+    try {
+      const response = await fetchJson(
+        `/api/news/reaction?watchlist=${encodeURIComponent(state.watchlistId)}&key=${encodeURIComponent(item.key)}`
+      );
+
+      if (state.selectedKey !== item.key) {
+        return;
+      }
+
+      renderHeadlineReaction(response.reaction || response, item);
+    } catch {
+      if (state.selectedKey !== item.key) {
+        return;
+      }
+
+      detailReaction.className = "newsPriceReaction mixed";
+      detailReaction.textContent = "Price reaction: trial read unavailable for this headline.";
+    }
   }
 
   async function loadDetail(item) {
@@ -673,6 +1058,7 @@
     }
 
     items.forEach((item) => {
+      const actionability = actionabilityMeta(item);
       const button = document.createElement("button");
       button.type = "button";
       button.className = `newsListItem${item.key === state.selectedKey ? " active" : ""}`;
@@ -692,16 +1078,21 @@
       sourceRow.innerHTML = `
         <span>${item.sourceName}</span>
         <span>${formatStamp(item.publishedAt || item.firstSeenAt)}</span>
-        <span>Score ${item.score}</span>
+        <span>Impact ${item.score}</span>
         <span>Conf ${item.confidence ?? 50}%</span>
       `;
 
+      const actionabilityRow = document.createElement("div");
+      actionabilityRow.className = "newsActionabilityRow";
+      actionabilityRow.appendChild(createTag(actionability.label, actionability.className));
+
       const snippet = document.createElement("div");
       snippet.className = "newsListItemSnippet";
-      snippet.textContent = item.generatedSummary || item.whyItMatters || "Matched the active watchlist and impact filter.";
+      snippet.textContent = item.generatedSummary || item.summary || "Headline matched the active watchlist.";
 
       main.appendChild(title);
       main.appendChild(sourceRow);
+      main.appendChild(actionabilityRow);
       main.appendChild(snippet);
 
       const meta = document.createElement("div");
@@ -762,7 +1153,7 @@
         await fetchJson(`/api/news/refresh?watchlist=${encodeURIComponent(state.watchlistId)}`);
       }
 
-      const [statusResponse, itemsResponse, catalystsResponse] = await Promise.all([
+      const [statusResponse, itemsResponse] = await Promise.all([
         fetchJson(`/api/news/status?watchlist=${encodeURIComponent(state.watchlistId)}`),
         fetchJson(
           `/api/news/items?watchlist=${encodeURIComponent(state.watchlistId)}&minScore=${encodeURIComponent(
@@ -771,13 +1162,29 @@
             state.signalMode
           )}&sourceMode=${encodeURIComponent(state.sourceMode)}&tradingMode=${encodeURIComponent(state.tradingMode)}`
         ),
-        fetchJson(`/api/news/catalysts?watchlist=${encodeURIComponent(state.watchlistId)}&hours=168`),
       ]);
+      let catalysts = null;
+
+      try {
+        const catalystsResponse = await fetchJson(
+          `/api/news/catalysts?watchlist=${encodeURIComponent(state.watchlistId)}&hours=168`
+        );
+        catalysts = catalystsResponse.catalysts || null;
+      } catch (error) {
+        catalysts = {
+          items: [],
+          watchlistLabel: statusResponse.status?.label || state.watchlistId,
+          windowHours: 168,
+          sourceError: error instanceof Error ? error.message : String(error),
+          disclaimer: "The catalyst panel is separate from the live feed.",
+        };
+      }
 
       state.status = statusResponse.status;
       state.items = itemsResponse.items || [];
-      state.catalysts = catalystsResponse.catalysts || null;
+      state.catalysts = catalysts;
       renderStatus();
+      loadMarketReaction().catch(() => {});
       renderCatalysts();
       renderItems();
     } catch (error) {
@@ -791,6 +1198,7 @@
         newItemCount: state.status?.newItemCount || 0,
       };
       renderStatus();
+      renderMarketReaction();
       renderCatalysts();
       renderItems();
     } finally {
@@ -813,6 +1221,13 @@
     if (state.timerHandle) {
       clearTimeout(state.timerHandle);
       state.timerHandle = null;
+    }
+  }
+
+  function clearMarketReactionTimer() {
+    if (state.marketTimerHandle) {
+      clearInterval(state.marketTimerHandle);
+      state.marketTimerHandle = null;
     }
   }
 
@@ -854,10 +1269,21 @@
     scheduleNextPoll(CLIENT_MIN_DELAY_MS);
   }
 
+  function startMarketReactionPolling() {
+    clearMarketReactionTimer();
+    state.marketTimerHandle = setInterval(() => {
+      if (!document.hidden) {
+        loadMarketReaction().catch(() => {});
+      }
+    }, MARKET_REACTION_POLL_MS);
+  }
+
   async function bootstrap() {
     try {
       await loadWatchlists();
       await loadNews();
+      await loadMarketReaction();
+      startMarketReactionPolling();
       state.initialized = true;
     } catch (error) {
       state.initialized = false;
@@ -882,6 +1308,7 @@
     state.watchlistId = watchlistSelect.value;
     state.detailCache = {};
     state.listMode = "visible";
+    loadMarketReaction().catch(() => {});
     loadNews().catch(() => {});
   });
 
@@ -897,20 +1324,12 @@
     loadNews().catch(() => {});
   });
 
-  signalSelect.addEventListener("change", () => {
-    state.signalMode = signalSelect.value || "realtime";
-    state.listMode = "visible";
-    loadNews().catch(() => {});
-  });
-
-  sourceSelect.addEventListener("change", () => {
-    state.sourceMode = sourceSelect.value || "established";
-    state.listMode = "visible";
-    loadNews().catch(() => {});
-  });
-
-  tradingSelect.addEventListener("change", () => {
-    state.tradingMode = tradingSelect.value || "tradeable";
+  newsTypeSelect.addEventListener("change", () => {
+    state.newsType = newsTypeSelect.value || "moving";
+    const modes = newsTypeModes(state.newsType);
+    state.signalMode = modes.signalMode;
+    state.sourceMode = modes.sourceMode;
+    state.tradingMode = modes.tradingMode;
     state.listMode = "visible";
     loadNews().catch(() => {});
   });
@@ -943,6 +1362,7 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       clearAutoPollingTimer();
+      clearMarketReactionTimer();
       return;
     }
 
@@ -952,6 +1372,8 @@
       return;
     }
 
+    startMarketReactionPolling();
+    loadMarketReaction().catch(() => {});
     loadNews().catch(() => {});
   });
 

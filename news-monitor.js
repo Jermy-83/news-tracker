@@ -1,5 +1,5 @@
 const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 60_000);
-const MAX_ITEMS = 120;
+const MAX_ITEMS = 400;
 const ITEM_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 
 const WATCHLISTS = {
@@ -24,6 +24,26 @@ const WATCHLISTS = {
         label: "Semiconductors / AI",
         url: "https://news.google.com/rss/search?q=semiconductor+OR+AI+chips+OR+Nvidia+OR+TSMC+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
+      {
+        id: "cnbc-markets",
+        label: "CNBC Markets",
+        url: "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      },
+      {
+        id: "marketwatch-top",
+        label: "MarketWatch",
+        url: "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+      },
+      {
+        id: "fed-official",
+        label: "Federal Reserve",
+        url: "https://www.federalreserve.gov/feeds/press_all.xml",
+      },
+      {
+        id: "us-data-search",
+        label: "US Data Search",
+        url: "https://news.google.com/rss/search?q=US+CPI+OR+PCE+OR+FOMC+OR+%22jobless+claims%22+OR+%22nonfarm+payrolls%22+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
+      },
     ],
     focusKeywords: [
       "nasdaq",
@@ -37,6 +57,11 @@ const WATCHLISTS = {
       "fomc",
       "treasury yields",
       "inflation",
+      "pce",
+      "cpi",
+      "gdp",
+      "consumer confidence",
+      "ism",
       "payrolls",
       "jobless claims",
       "tariffs",
@@ -75,6 +100,46 @@ const WATCHLISTS = {
         label: "Geopolitics / Oil",
         url: "https://news.google.com/rss/search?q=Middle+East+OR+oil+OR+sanctions+OR+war+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
+      {
+        id: "fxstreet-news",
+        label: "FXStreet",
+        url: "https://www.fxstreet.com/rss/news",
+      },
+      {
+        id: "kitco-news",
+        label: "Kitco",
+        url: "https://www.kitco.com/news/rss",
+      },
+      {
+        id: "fed-official",
+        label: "Federal Reserve",
+        url: "https://www.federalreserve.gov/feeds/press_all.xml",
+      },
+      {
+        id: "cnbc-markets",
+        label: "CNBC Markets",
+        url: "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      },
+      {
+        id: "marketwatch-top",
+        label: "MarketWatch",
+        url: "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+      },
+      {
+        id: "eia-energy",
+        label: "EIA Energy",
+        url: "https://www.eia.gov/rss/todayinenergy.xml",
+      },
+      {
+        id: "gold-high-trust-search",
+        label: "Gold High-Trust Search",
+        url: "https://news.google.com/rss/search?q=gold+dollar+yields+Federal+Reserve+Reuters+OR+Bloomberg+OR+CNBC+when:12h&hl=en-US&gl=US&ceid=US:en",
+      },
+      {
+        id: "us-data-search",
+        label: "US Data Search",
+        url: "https://news.google.com/rss/search?q=US+CPI+OR+PCE+OR+FOMC+OR+%22jobless+claims%22+OR+%22nonfarm+payrolls%22+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
+      },
     ],
     focusKeywords: [
       "gold",
@@ -85,6 +150,11 @@ const WATCHLISTS = {
       "inflation",
       "pce",
       "cpi",
+      "gdp",
+      "consumer confidence",
+      "ism",
+      "jobless claims",
+      "payrolls",
       "yields",
       "treasury",
       "dollar",
@@ -93,6 +163,9 @@ const WATCHLISTS = {
       "oil",
       "sanctions",
       "central bank",
+      "safe haven",
+      "real yields",
+      "crude inventories",
     ],
   },
   btc: {
@@ -116,6 +189,31 @@ const WATCHLISTS = {
         label: "Macro Risk Appetite",
         url: "https://news.google.com/rss/search?q=Federal+Reserve+OR+liquidity+OR+risk+appetite+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
+      {
+        id: "coindesk",
+        label: "CoinDesk",
+        url: "https://www.coindesk.com/arc/outboundfeeds/rss",
+      },
+      {
+        id: "cointelegraph",
+        label: "Cointelegraph",
+        url: "https://cointelegraph.com/rss",
+      },
+      {
+        id: "decrypt",
+        label: "Decrypt",
+        url: "https://decrypt.co/feed",
+      },
+      {
+        id: "investing-crypto",
+        label: "Investing Crypto",
+        url: "https://www.investing.com/rss/news_301.rss",
+      },
+      {
+        id: "fed-official",
+        label: "Federal Reserve",
+        url: "https://www.federalreserve.gov/feeds/press_all.xml",
+      },
     ],
     focusKeywords: [
       "bitcoin",
@@ -136,7 +234,33 @@ const WATCHLISTS = {
 
 const CATALYST_WINDOW_HOURS = 168;
 const CATALYST_MAX_ITEMS = 14;
+const CATALYST_FOLLOWUP_HOURS = 12;
 const NEW_YORK_TIME_ZONE = "America/New_York";
+const FOREX_FACTORY_CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+const CATALYST_FEED_CACHE_MS = 5 * 60 * 1000;
+const MARKET_REACTION_CACHE_MS = 5 * 1000;
+const HEADLINE_REACTION_CACHE_MS = 30 * 1000;
+const MARKET_REACTION_SYMBOLS = [
+  { id: "xauusd", label: "XAUUSD", symbol: "xauusd", role: "spot gold", format: "price", source: "stooq" },
+];
+const HEADLINE_REACTION_SYMBOLS = [
+  { id: "gold", label: "Gold futures", symbol: "GC=F", role: "gold proxy", format: "price", expectedForGold: 1 },
+  { id: "dxy", label: "DXY", symbol: "DX-Y.NYB", role: "dollar driver", format: "price", expectedForGold: -1 },
+  { id: "us10y", label: "US10Y", symbol: "^TNX", role: "yield driver", format: "yield", expectedForGold: -1 },
+];
+
+let forexFactoryCalendarCache = {
+  fetchedAt: 0,
+  items: [],
+  error: "",
+};
+
+let marketReactionCache = {
+  fetchedAt: 0,
+  payload: null,
+};
+
+const headlineReactionCache = new Map();
 
 const CATALYST_DEFINITIONS = [
   {
@@ -407,14 +531,18 @@ const TITLE_STOP_WORDS = new Set([
 ]);
 
 const SOURCE_QUALITY_RULES = [
+  { pattern: /\bfederal reserve\b|\bbls\b|\bbea\b|\beia\b|\bus treasury\b|\bism\b/i, score: 2.8 },
   { pattern: /\breuters\b/i, score: 2.8 },
   { pattern: /\bbloomberg\b/i, score: 2.6 },
   { pattern: /\bassociated press\b|\bap news\b/i, score: 2.4 },
   { pattern: /\bfinancial times\b|\bft\b/i, score: 2.4 },
   { pattern: /\bwall street journal\b|\bwsj\b/i, score: 2.4 },
   { pattern: /\bnew york times\b/i, score: 2.2 },
+  { pattern: /\bcoindesk\b|\bkitco\b/i, score: 2.0 },
   { pattern: /\bcnbc\b/i, score: 2.0 },
+  { pattern: /\bfxstreet\b/i, score: 1.9 },
   { pattern: /\bmarketwatch\b|\binvesting\.com\b/i, score: 1.8 },
+  { pattern: /\bdecrypt\b|\bcointelegraph\b/i, score: 1.6 },
   { pattern: /\bthe economic times\b|\bmoneycontrol\b|\bwsj\b/i, score: 1.5 },
   { pattern: /\bmsn\b/i, score: 0.6 },
   { pattern: /\bdailyhunt\b/i, score: 0.2 },
@@ -1508,12 +1636,11 @@ function buildGroupedItems(items, watchlist, cappedLimit) {
         combinedCount: cluster.items.length,
         combinedKey: primary.key,
         generatedSummary: createGeneratedSummary(primary),
-        whyItMatters: [
-          primary.whyItMatters,
-          uniqueSources > 1 ? `confirmed by ${uniqueSources} sources` : "",
-        ]
-          .filter(Boolean)
-          .join(" | "),
+        whyItMatters: buildTradingWhyItMatters(primary, {
+          eventDriven: primary.eventDriven,
+          sourceQuality: bestSourceAuthority.score,
+          uniqueSources,
+        }),
         references,
       };
     })
@@ -1529,23 +1656,58 @@ function decodeHtml(value) {
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/g, "&")
+    .replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#x2F;/gi, "/")
+    .replace(/&#(\d+);/g, (_, code) => {
+      const value = Number(code);
+      return Number.isFinite(value) ? String.fromCharCode(value) : "";
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => {
+      const value = Number.parseInt(code, 16);
+      return Number.isFinite(value) ? String.fromCharCode(value) : "";
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeHeadlineText(value) {
+  return decodeHtml(value)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s*[-–—]\s*(Reuters|Bloomberg|CNBC|MarketWatch|FXStreet|Kitco|CoinDesk|Cointelegraph|Decrypt|CHOSUNBIZ|MSN)\s*$/i, "")
+    .replace(/\s*\|\s*(Reuters|Bloomberg|CNBC|MarketWatch|FXStreet|Kitco|CoinDesk|Cointelegraph|Decrypt|MSN)\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function stripTrailingSource(text, sourceName) {
-  const clean = decodeHtml(text);
+  let clean = normalizeHeadlineText(text);
   if (!sourceName) {
     return clean;
   }
 
-  const suffix = new RegExp(`\\s${String(sourceName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
-  return clean.replace(suffix, "").trim();
+  const escapedSource = String(sourceName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const suffix = new RegExp(`\\s*(?:[-–—|]\\s*)?${escapedSource}\\s*$`, "i");
+  clean = clean.replace(suffix, "").trim();
+
+  const sourceTokens = String(sourceName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+  const lastWord = sourceTokens.at(-1);
+  if (lastWord) {
+    clean = clean.replace(new RegExp(`\\s*(?:[-–—|]\\s*)?${lastWord}\\s*$`, "i"), "").trim();
+  }
+
+  return normalizeHeadlineText(clean);
 }
 
 function getTagValue(block, tag) {
@@ -1586,17 +1748,61 @@ function normalizeKey(title, link) {
   return `${String(title || "").toLowerCase().trim()}|${String(link || "").trim()}`;
 }
 
+function isLikelySourceSuffix(value) {
+  const clean = normalizeHeadlineText(value);
+  if (!clean) {
+    return false;
+  }
+
+  if (/[?]|^(details|report|analysis|opinion|preview|watch|what you need to know|where is|why it matters)$/i.test(clean)) {
+    return false;
+  }
+
+  if (/\.(com|net|org|io|co)\b/i.test(clean)) {
+    return true;
+  }
+
+  if (/^(Reuters|Bloomberg|CNBC|MarketWatch|FXStreet|Kitco|CoinDesk|Cointelegraph|Decrypt|MSN|Yahoo Finance|NDTV Profit|Moneycontrol|Rediff MoneyWiz|CHOSUNBIZ)$/i.test(clean)) {
+    return true;
+  }
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length > 4) {
+    return false;
+  }
+
+  if (/[^\x00-\x7F]/.test(clean) && clean.length <= 28) {
+    return true;
+  }
+
+  const hasPublisherShape = words.some((word) => /^[A-Z][A-Za-z0-9&.]*$/.test(word) || /^[A-Z]{2,}$/.test(word));
+  const hasSentenceShape = /\b(is|are|was|were|can|could|may|might|will|should|amid|ahead|after|before|because)\b/i.test(clean);
+
+  return hasPublisherShape && !hasSentenceShape;
+}
+
 function splitSourceFromTitle(title, feedLabel) {
-  const parts = String(title || "").split(" - ");
+  const cleanTitle = normalizeHeadlineText(title);
+  const parts = cleanTitle.split(/\s+-\s+/);
   if (parts.length > 1) {
-    return {
-      cleanTitle: parts.slice(0, -1).join(" - ").trim(),
-      sourceName: parts.at(-1).trim(),
-    };
+    const sourceName = normalizeHeadlineText(parts.at(-1));
+    if (isLikelySourceSuffix(sourceName)) {
+      return {
+        cleanTitle: stripTrailingSource(parts.slice(0, -1).join(" - "), sourceName),
+        sourceName,
+      };
+    }
+
+    if (/^details$/i.test(sourceName)) {
+      return {
+        cleanTitle: normalizeHeadlineText(parts.slice(0, -1).join(" - ")),
+        sourceName: feedLabel,
+      };
+    }
   }
 
   return {
-    cleanTitle: String(title || "").trim(),
+    cleanTitle: stripTrailingSource(cleanTitle, feedLabel),
     sourceName: feedLabel,
   };
 }
@@ -1716,51 +1922,1078 @@ function weekdayEtCandidates(now, end, hour, minute) {
   return [1, 2, 3, 4, 5].flatMap((weekday) => weeklyEtCandidates(now, end, weekday, hour, minute));
 }
 
+function extractXmlField(block, field) {
+  const match = String(block || "").match(new RegExp(`<${field}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${field}>`, "i"));
+  if (!match) {
+    return "";
+  }
+
+  return decodeHtml(match[1])
+    .replace(/^\s*<!\[CDATA\[/, "")
+    .replace(/\]\]>\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseForexFactoryDate(dateText, timeText) {
+  const dateMatch = String(dateText || "").match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!dateMatch) {
+    return null;
+  }
+
+  const month = Number(dateMatch[1]);
+  const day = Number(dateMatch[2]);
+  const year = Number(dateMatch[3]);
+  const time = String(timeText || "").trim().toLowerCase();
+  if (!time || time === "all day" || time === "tentative") {
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  }
+
+  const timeMatch = time.match(/^(\d{1,2}):(\d{2})(am|pm)$/i);
+  if (!timeMatch) {
+    return null;
+  }
+
+  let hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2]);
+  const meridiem = timeMatch[3].toLowerCase();
+  if (meridiem === "am" && hour === 12) {
+    hour = 0;
+  }
+  if (meridiem === "pm" && hour !== 12) {
+    hour += 12;
+  }
+
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+}
+
+function parseForexFactoryCalendar(xmlText) {
+  return Array.from(String(xmlText || "").matchAll(/<event>([\s\S]*?)<\/event>/gi))
+    .map((match) => {
+      const block = match[1];
+      const date = extractXmlField(block, "date");
+      const time = extractXmlField(block, "time");
+      const scheduledAt = parseForexFactoryDate(date, time);
+
+      return {
+        title: extractXmlField(block, "title"),
+        country: extractXmlField(block, "country"),
+        date,
+        time,
+        scheduledAt: scheduledAt ? scheduledAt.toISOString() : "",
+        calendarImpact: extractXmlField(block, "impact"),
+        forecast: extractXmlField(block, "forecast"),
+        previous: extractXmlField(block, "previous"),
+        url: extractXmlField(block, "url"),
+      };
+    })
+    .filter((item) => item.title && item.scheduledAt);
+}
+
+function parseForexFactoryCalendarJson(jsonText) {
+  let events = [];
+  try {
+    events = JSON.parse(String(jsonText || "[]"));
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(events)) {
+    return [];
+  }
+
+  return events
+    .map((event) => {
+      const scheduledAt = new Date(event.date);
+      return {
+        title: String(event.title || "").trim(),
+        country: String(event.country || "").trim(),
+        date: String(event.date || "").trim(),
+        time: "",
+        scheduledAt: Number.isNaN(scheduledAt.getTime()) ? "" : scheduledAt.toISOString(),
+        calendarImpact: String(event.impact || "").trim(),
+        forecast: String(event.forecast || "").trim(),
+        previous: String(event.previous || "").trim(),
+        url: String(event.url || "").trim(),
+      };
+    })
+    .filter((item) => item.title && item.scheduledAt);
+}
+
+async function fetchForexFactoryCalendar() {
+  const now = Date.now();
+  if (forexFactoryCalendarCache.fetchedAt && now - forexFactoryCalendarCache.fetchedAt < CATALYST_FEED_CACHE_MS) {
+    return forexFactoryCalendarCache;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const response = await fetch(FOREX_FACTORY_CALENDAR_URL, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 MarketIntelligenceDesk/1.0",
+        Accept: "application/json,text/xml;q=0.8,*/*;q=0.7",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`ForexFactory calendar failed with ${response.status}`);
+    }
+
+    const responseText = await response.text();
+    forexFactoryCalendarCache = {
+      fetchedAt: Date.now(),
+      items: response.headers.get("content-type")?.includes("json")
+        ? parseForexFactoryCalendarJson(responseText)
+        : parseForexFactoryCalendar(responseText),
+      error: "",
+    };
+  } catch (error) {
+    forexFactoryCalendarCache = {
+      fetchedAt: Date.now(),
+      items: forexFactoryCalendarCache.items,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  return forexFactoryCalendarCache;
+}
+
 function catalystImpactScore(impact) {
   if (impact === "high") return 3;
   if (impact === "medium") return 2;
   return 1;
 }
 
-function getUpcomingCatalysts(watchlist, { hours = CATALYST_WINDOW_HOURS } = {}) {
+function officialSourcesForCatalyst(title, country = "") {
+  const text = `${title} ${country}`.toLowerCase();
+  const isUsd = !country || country.toUpperCase() === "USD";
+  const sources = [];
+
+  if (isUsd && /\bfomc\b|federal funds|fed\b|powell|federal reserve/.test(text)) {
+    sources.push({ label: "Federal Reserve", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", type: "official" });
+  }
+  if (country.toUpperCase() === "JPY" && /boj|policy|rate|press conference|outlook/.test(text)) {
+    sources.push({ label: "Bank of Japan", url: "https://www.boj.or.jp/en/mopo/mpmdeci/index.htm", type: "official" });
+  }
+  if (country.toUpperCase() === "EUR" && /ecb|monetary policy|refinancing rate|press conference/.test(text)) {
+    sources.push({ label: "ECB", url: "https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html", type: "official" });
+  }
+  if (country.toUpperCase() === "GBP" && /boe|bank rate|monetary policy|mpc/.test(text)) {
+    sources.push({ label: "Bank of England", url: "https://www.bankofengland.co.uk/monetary-policy-summary-and-minutes", type: "official" });
+  }
+  if (country.toUpperCase() === "CAD" && /boc|overnight rate|monetary policy|press conference/.test(text)) {
+    sources.push({ label: "Bank of Canada", url: "https://www.bankofcanada.ca/core-functions/monetary-policy/key-interest-rate/", type: "official" });
+  }
+  if (isUsd && /\bcpi\b|employment cost|nonfarm|payroll|jolts|unemployment rate/.test(text)) {
+    sources.push({ label: "BLS", url: "https://www.bls.gov/schedule/news_release/", type: "official" });
+  }
+  if (isUsd && /\bpce\b|personal income|personal spending|gdp|goods trade|wholesale inventories/.test(text)) {
+    sources.push({ label: "BEA", url: "https://www.bea.gov/news/schedule", type: "official" });
+  }
+  if (isUsd && /unemployment claims|jobless claims/.test(text)) {
+    sources.push({ label: "US Labor Dept", url: "https://www.dol.gov/ui/data.pdf", type: "official" });
+  }
+  if (isUsd && /ism|pmi/.test(text)) {
+    sources.push({
+      label: "ISM",
+      url: "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/",
+      type: "official",
+    });
+  }
+  if (isUsd && /crude oil|natural gas|inventories|storage/.test(text)) {
+    sources.push({ label: "EIA", url: "https://www.eia.gov/petroleum/supply/weekly/", type: "official" });
+  }
+  if (isUsd && /treasury|bond auction|note auction|bill auction/.test(text)) {
+    sources.push({ label: "US Treasury", url: "https://www.treasurydirect.gov/auctions/announcements-data-results/", type: "official" });
+  }
+  if (isUsd && /consumer confidence/.test(text)) {
+    sources.push({ label: "Conference Board", url: "https://www.conference-board.org/topics/consumer-confidence", type: "source" });
+  }
+
+  return sources;
+}
+
+function dedupeSources(sources) {
+  const seen = new Set();
+  return sources.filter((source) => {
+    const key = `${source.label}|${source.url}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeValues(values) {
+  return uniq(values.map((value) => String(value || "").trim()).filter(Boolean));
+}
+
+function catalystMergeWords(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\bus\b/g, "united states")
+    .replace(/\brelease window\b/g, "")
+    .replace(/\brisk window\b/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !TITLE_STOP_WORDS.has(word));
+}
+
+function catalystThemeScore(left, right) {
+  const leftWords = catalystMergeWords(`${left.title} ${left.category}`);
+  const rightWords = catalystMergeWords(`${right.title} ${right.category}`);
+  const rightSet = new Set(rightWords);
+  const sharedWords = leftWords.filter((word) => rightSet.has(word)).length;
+  const sharedCategory = String(left.category || "").toLowerCase() === String(right.category || "").toLowerCase();
+  const sharedCountry = String(left.country || "").toUpperCase() && String(left.country || "").toUpperCase() === String(right.country || "").toUpperCase();
+
+  return sharedWords + (sharedCategory ? 3 : 0) + (sharedCountry ? 1 : 0);
+}
+
+function isSameCatalyst(left, right) {
+  const leftTime = Date.parse(left.scheduledAt || "");
+  const rightTime = Date.parse(right.scheduledAt || "");
+  if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) {
+    return false;
+  }
+
+  const sameWindow = Math.abs(leftTime - rightTime) <= 2 * 3_600_000;
+  return sameWindow && catalystThemeScore(left, right) >= 3;
+}
+
+function preferCatalystTitle(left, right) {
+  const leftTitle = String(left.title || "");
+  const rightTitle = String(right.title || "");
+  const leftIsModel = /window/i.test(leftTitle);
+  const rightIsModel = /window/i.test(rightTitle);
+  if (leftIsModel && !rightIsModel) return rightTitle;
+  if (rightIsModel && !leftIsModel) return leftTitle;
+  return rightTitle.length > leftTitle.length ? rightTitle : leftTitle;
+}
+
+function combineCatalysts(existing, incoming) {
+  const sources = dedupeSources([...(existing.sources || []), ...(incoming.sources || [])]);
+  const dataSources = dedupeValues([existing.dataSource, incoming.dataSource, ...(existing.dataSources || []), ...(incoming.dataSources || [])]);
+  const impactScore = Math.max(Number(existing.impactScore || 0), Number(incoming.impactScore || 0));
+  const impactRank = { high: 3, medium: 2, low: 1 };
+  const impact =
+    (impactRank[incoming.impact] || 0) > (impactRank[existing.impact] || 0)
+      ? incoming.impact
+      : existing.impact;
+
+  return {
+    ...existing,
+    title: preferCatalystTitle(existing, incoming),
+    category: incoming.category || existing.category,
+    impact,
+    scheduledAt: existing.scheduledAt || incoming.scheduledAt,
+    country: existing.country || incoming.country,
+    forecast: existing.forecast || incoming.forecast,
+    previous: existing.previous || incoming.previous,
+    sources,
+    sourceCount: sources.length,
+    sourceLabel: sources.length > 1 ? `${sources.length} sources` : sources[0]?.label || existing.sourceLabel || incoming.sourceLabel,
+    dataSource: dataSources.join(" + "),
+    dataSources,
+    whyItMatters: existing.whyItMatters || incoming.whyItMatters,
+    tradeRisk: existing.tradeRisk || incoming.tradeRisk,
+    impactScore,
+    id: existing.id || incoming.id,
+  };
+}
+
+function classifyXauusdCatalyst(event) {
+  const title = String(event.title || "");
+  const country = String(event.country || "");
+  const text = `${title} ${country}`.toLowerCase();
+  const calendarImpact = String(event.calendarImpact || "").toLowerCase();
+  const isUsd = country.toUpperCase() === "USD";
+  const isHigh = calendarImpact === "high";
+  const isMedium = calendarImpact === "medium";
+  const centralBank = /\bfomc\b|fed\b|federal funds|rate statement|policy statement|press conference|central bank|ecb|boj|boe|boc/.test(text);
+  const inflation = /\bcpi\b|\bpce\b|inflation|price index|prices|employment cost/.test(text);
+  const labor = /payroll|employment|unemployment|claims|jolts|adp/.test(text);
+  const growth = /\bgdp\b|retail sales|consumer confidence|durable goods|ism|pmi|manufacturing/.test(text);
+  const energy = /crude oil|natural gas|inventories|storage/.test(text);
+  const rates = /treasury|bond auction|yield|federal funds|rate/.test(text);
+  const globalRisk = ["EUR", "JPY", "GBP", "CAD", "CNY", "AUD"].includes(country.toUpperCase()) && isHigh && centralBank;
+
+  if (!isUsd && !globalRisk) {
+    return null;
+  }
+
+  if (!isHigh && !isMedium && !energy && !rates) {
+    return null;
+  }
+
+  let score = isHigh ? 78 : isMedium ? 58 : 36;
+  if (isUsd) score += 16;
+  if (centralBank) score += 18;
+  if (inflation) score += 18;
+  if (labor) score += 12;
+  if (growth) score += 9;
+  if (energy) score += 8;
+  if (rates) score += 10;
+  if (globalRisk) score += 8;
+
+  score = clamp(score, 1, 100);
+
+  const category = centralBank
+    ? "Rates"
+    : inflation
+      ? "Inflation"
+      : labor
+        ? "Labor"
+        : growth
+          ? "Growth"
+          : energy
+            ? "Energy"
+            : rates
+              ? "Rates"
+              : "Macro";
+  const impact = score >= 82 ? "high" : score >= 55 ? "medium" : "low";
+  const drivers = [
+    centralBank ? "central-bank repricing" : "",
+    inflation ? "inflation impulse" : "",
+    labor ? "labor-market signal" : "",
+    growth ? "growth signal" : "",
+    energy ? "oil/inflation channel" : "",
+    rates ? "yield sensitivity" : "",
+  ].filter(Boolean);
+  const sources = dedupeSources([
+    { label: "ForexFactory", url: event.url || "https://www.forexfactory.com/calendar", type: "calendar" },
+    ...officialSourcesForCatalyst(title, country),
+  ]);
+
+  return {
+    id: `ff-${country}-${title}-${event.scheduledAt}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    title,
+    category,
+    impact,
+    scheduledAt: event.scheduledAt,
+    watchlistId: "xauusd",
+    watchlistLabel: "XAUUSD",
+    country,
+    forecast: event.forecast,
+    previous: event.previous,
+    sourceLabel: sources.length > 1 ? `${sources.length} sources` : sources[0]?.label || "ForexFactory",
+    sourceCount: sources.length,
+    sources,
+    dataSource: "ForexFactory weekly calendar",
+    whyItMatters:
+      drivers.length > 0
+        ? `Gold is sensitive to ${drivers.join(", ")} through the dollar, Treasury yields, and real-rate expectations.`
+        : "Relevant scheduled macro event for XAUUSD risk management.",
+    tradeRisk:
+      impact === "high"
+        ? "High gap/slippage risk around the release. Wait for dollar and yield confirmation before chasing the first move."
+        : "Medium event risk. Use the timing as a volatility marker and confirm with DXY and US yields.",
+    impactScore: score,
+  };
+}
+
+function buildOfficialScheduleCatalysts(watchlist, now, end, watchlistId) {
+  return CATALYST_DEFINITIONS
+    .filter((definition) => definition.watchlists.includes(watchlistId))
+    .flatMap((definition) =>
+      definition.schedule(now, end).map((scheduledAt) => {
+        const sources = dedupeSources([
+          { label: "Desk timing model", url: "", type: "model" },
+          ...officialSourcesForCatalyst(definition.title),
+        ]);
+
+        return {
+          id: `${definition.id}-${scheduledAt.toISOString()}`,
+          title: definition.title,
+          category: definition.category,
+          impact: definition.impact,
+          scheduledAt: scheduledAt.toISOString(),
+          watchlistId,
+          watchlistLabel: watchlist?.label || watchlistId.toUpperCase(),
+          sourceLabel: sources.length > 1 ? `${sources.length} sources` : "Desk timing model",
+          sourceCount: sources.length,
+          sources,
+          dataSource: "Official schedule model",
+          whyItMatters: definition.whyItMatters,
+          tradeRisk: definition.tradeRisk,
+          impactScore: catalystImpactScore(definition.impact) * 20,
+        };
+      })
+    );
+}
+
+function mergeCatalysts(...groups) {
+  const merged = [];
+
+  groups.flat().filter(Boolean).forEach((item) => {
+    const existingIndex = merged.findIndex((candidate) => isSameCatalyst(candidate, item));
+    if (existingIndex === -1) {
+      merged.push(item);
+      return;
+    }
+
+    merged[existingIndex] = combineCatalysts(merged[existingIndex], item);
+  });
+
+  return merged;
+}
+
+function catalystStatus(catalyst, now = new Date()) {
+  const scheduledAt = Date.parse(catalyst.scheduledAt || "");
+  if (!Number.isFinite(scheduledAt)) {
+    return "upcoming";
+  }
+
+  const deltaMinutes = (scheduledAt - now.getTime()) / 60_000;
+  if (deltaMinutes > 0) {
+    return "upcoming";
+  }
+
+  if (deltaMinutes >= -90) {
+    return "live";
+  }
+
+  return "recent";
+}
+
+function catalystMatchKeywords(catalyst) {
+  const title = String(catalyst.title || "").toLowerCase();
+  const category = String(catalyst.category || "").toLowerCase();
+  const keywords = [
+    ...title
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 3 && !TITLE_STOP_WORDS.has(word)),
+  ];
+
+  if (category === "inflation") keywords.push("cpi", "pce", "inflation", "prices");
+  if (category === "rates") keywords.push("fed", "fomc", "rate", "powell", "yields", "treasury");
+  if (category === "labor") keywords.push("jobs", "claims", "payrolls", "unemployment", "employment");
+  if (category === "growth") keywords.push("gdp", "ism", "pmi", "consumer", "confidence");
+  if (category === "energy") keywords.push("oil", "crude", "inventories", "energy");
+  keywords.push("gold", "xauusd", "dollar", "yields");
+
+  return uniq(keywords);
+}
+
+function relatedNewsScore(catalyst, item) {
+  const scheduledAt = Date.parse(catalyst.scheduledAt || "");
+  const itemTime = itemTimestamp(item);
+  if (!Number.isFinite(scheduledAt) || !itemTime) {
+    return 0;
+  }
+
+  const windowStart = scheduledAt - 2 * 3_600_000;
+  const windowEnd = scheduledAt + CATALYST_FOLLOWUP_HOURS * 3_600_000;
+  if (itemTime < windowStart || itemTime > windowEnd) {
+    return 0;
+  }
+
+  const text = `${item.title} ${item.generatedSummary || ""} ${item.summary || ""} ${item.whyItMatters || ""}`.toLowerCase();
+  const keywords = catalystMatchKeywords(catalyst);
+  const keywordHits = keywords.reduce((count, keyword) => (text.includes(keyword) ? count + 1 : count), 0);
+  const sourceBonus = Number(item.sourceAuthorityScore || 0);
+  const impactBonus = item.impact === "high" ? 3 : item.impact === "medium" ? 1.5 : 0;
+
+  return keywordHits * 2 + sourceBonus + impactBonus;
+}
+
+function inferXauusdImpact(catalyst, relatedNews) {
+  if (!relatedNews.length) {
+    return catalyst.status === "upcoming"
+      ? "When this event hits, watch DXY and US yields first. The post-event read will update here when matching headlines arrive."
+      : "Event window has passed, but no matching headline is confirmed yet. Treat the first move as unconfirmed until fresh source coverage appears.";
+  }
+
+  const text = relatedNews.map((item) => `${item.title} ${item.sourceName}`).join(" ").toLowerCase();
+  const bullishHits = countMatches(text, [
+    "gold rises",
+    "gold rallies",
+    "gold surges",
+    "gold gains",
+    "dollar weakens",
+    "dollar falls",
+    "yields fall",
+    "yields drop",
+    "rate cut",
+    "dovish",
+    "war",
+    "attack",
+    "safe haven",
+    "inflation shock",
+  ]);
+  const bearishHits = countMatches(text, [
+    "gold falls",
+    "gold drops",
+    "gold dips",
+    "gold slides",
+    "dollar rises",
+    "dollar gains",
+    "yields rise",
+    "yields climb",
+    "hawkish",
+    "rate hike",
+    "profit booking",
+    "risk-on",
+  ]);
+
+  if (bullishHits > bearishHits) {
+    return "Post-event read: bullish risk for XAUUSD. Headlines point to safe-haven demand, weaker dollar/yields, or inflation stress. Confirm with DXY and US10Y before chasing.";
+  }
+
+  if (bearishHits > bullishHits) {
+    return "Post-event read: bearish risk for XAUUSD. Headlines point to stronger dollar/yields, hawkish repricing, or profit-taking. Avoid longs unless gold reclaims the first reaction.";
+  }
+
+  return "Post-event read: mixed for XAUUSD. News flow is active but not one-sided; use DXY, US10Y, and gold's first 15-minute range for confirmation.";
+}
+
+function attachCatalystFollowups(catalysts, relatedItems, now = new Date()) {
+  return catalysts.map((catalyst) => {
+    const status = catalystStatus(catalyst, now);
+    const relatedNews =
+      status === "upcoming"
+        ? []
+        : relatedItems
+            .map((item) => ({ item, score: relatedNewsScore(catalyst, item) }))
+            .filter((entry) => entry.score >= 5)
+            .sort((left, right) => {
+              if (right.score !== left.score) return right.score - left.score;
+              return itemTimestamp(right.item) - itemTimestamp(left.item);
+            })
+            .slice(0, 3)
+            .map((entry) => ({
+              title: entry.item.title,
+              sourceName: entry.item.sourceName,
+              publishedAt: entry.item.publishedAt || entry.item.firstSeenAt,
+              link: entry.item.link,
+              impact: entry.item.impact,
+              score: entry.item.score,
+            }));
+
+    return {
+      ...catalyst,
+      status,
+      relatedNews,
+      marketImpactRead: inferXauusdImpact({ ...catalyst, status }, relatedNews),
+    };
+  });
+}
+
+async function getUpcomingCatalysts(watchlist, { hours = CATALYST_WINDOW_HOURS, relatedItems = [] } = {}) {
   const now = new Date();
+  const start = new Date(now.getTime() - CATALYST_FOLLOWUP_HOURS * 3_600_000);
   const windowHours = clamp(Number(hours) || CATALYST_WINDOW_HOURS, 24, 336);
   const end = new Date(now.getTime() + windowHours * 3_600_000);
   const watchlistId = watchlist?.id || "xauusd";
+  const officialScheduleItems = buildOfficialScheduleCatalysts(watchlist, start, end, watchlistId);
+  let liveItems = [];
+  let sourceError = "";
 
-  const items = CATALYST_DEFINITIONS
-    .filter((definition) => definition.watchlists.includes(watchlistId))
-    .flatMap((definition) =>
-      definition.schedule(now, end).map((scheduledAt) => ({
-        id: `${definition.id}-${scheduledAt.toISOString()}`,
-        title: definition.title,
-        category: definition.category,
-        impact: definition.impact,
-        scheduledAt: scheduledAt.toISOString(),
-        watchlistId,
-        watchlistLabel: watchlist?.label || watchlistId.toUpperCase(),
-        sourceLabel: "Desk catalyst model",
-        whyItMatters: definition.whyItMatters,
-        tradeRisk: definition.tradeRisk,
-        impactScore: catalystImpactScore(definition.impact),
-      }))
-    )
+  if (watchlistId === "xauusd") {
+    const calendar = await fetchForexFactoryCalendar();
+    sourceError = calendar.error;
+    liveItems = calendar.items
+      .filter((item) => {
+        const scheduledAt = Date.parse(item.scheduledAt);
+        return Number.isFinite(scheduledAt) && scheduledAt > start.getTime() && scheduledAt <= end.getTime();
+      })
+      .map(classifyXauusdCatalyst)
+      .filter(Boolean);
+  }
+
+  const sourceItems =
+    watchlistId === "xauusd" ? mergeCatalysts(liveItems, officialScheduleItems) : mergeCatalysts(officialScheduleItems);
+  const items = attachCatalystFollowups(sourceItems, relatedItems, now)
     .sort((left, right) => {
+      const statusRank = { live: 0, recent: 1, upcoming: 2 };
+      const statusDiff = (statusRank[left.status] ?? 2) - (statusRank[right.status] ?? 2);
+      if (statusDiff !== 0) return statusDiff;
       const timeDiff = Date.parse(left.scheduledAt) - Date.parse(right.scheduledAt);
       if (timeDiff !== 0) return timeDiff;
       return right.impactScore - left.impactScore;
     })
     .slice(0, CATALYST_MAX_ITEMS);
+  const sourceNames = uniq(items.flatMap((item) => (item.sources || []).map((source) => source.label)).filter(Boolean));
 
   return {
     generatedAt: now.toISOString(),
     windowHours,
     watchlistId,
     watchlistLabel: watchlist?.label || watchlistId.toUpperCase(),
-    sourceLabel: "Desk catalyst model",
-    disclaimer: "Estimated scheduled risk windows, not an official economic calendar.",
+    sourceLabel: watchlistId === "xauusd" ? "Multi-source calendar" : "Official schedule model",
+    sourceError,
+    sourceNames,
+    disclaimer:
+      watchlistId === "xauusd"
+        ? "Live calendar events, official release references, and desk risk windows are merged into one deduped XAUUSD catalyst tape."
+        : "Official release references and desk risk windows are merged into one catalyst tape.",
     items,
   };
+}
+
+function yahooChartUrl(symbol) {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`;
+}
+
+function yahooChartRangeUrl(symbol, range = "5d", interval = "15m") {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(
+    range
+  )}&interval=${encodeURIComponent(interval)}`;
+}
+
+function stooqQuoteUrl(symbol) {
+  return `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`;
+}
+
+function latestFinite(values) {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const value = Number(values[index]);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+async function fetchMarketInstrument(instrument) {
+  if (instrument.source === "stooq") {
+    return fetchStooqInstrument(instrument);
+  }
+
+  const response = await fetch(yahooChartUrl(instrument.symbol), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${instrument.label} failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  if (!result) {
+    throw new Error(`${instrument.label} returned no data`);
+  }
+
+  const meta = result.meta || {};
+  const closeValues = result.indicators?.quote?.[0]?.close || [];
+  const latest = Number(meta.regularMarketPrice) || latestFinite(closeValues);
+  const previousClose = Number(meta.previousClose || meta.chartPreviousClose);
+  const firstClose = latestFinite(closeValues.slice(0, 4)) || previousClose;
+
+  if (!Number.isFinite(latest) || !Number.isFinite(previousClose)) {
+    throw new Error(`${instrument.label} has incomplete price data`);
+  }
+
+  const dayChange = latest - previousClose;
+  const dayChangePercent = previousClose ? (dayChange / previousClose) * 100 : 0;
+  const intradayChange = Number.isFinite(firstClose) ? latest - firstClose : dayChange;
+  const intradayChangePercent = Number.isFinite(firstClose) && firstClose ? (intradayChange / firstClose) * 100 : dayChangePercent;
+
+  return {
+    ...instrument,
+    name: meta.shortName || instrument.label,
+    price: latest,
+    previousClose,
+    dayChange,
+    dayChangePercent,
+    intradayChange,
+    intradayChangePercent,
+    updatedAt: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+  };
+}
+
+async function fetchStooqInstrument(instrument) {
+  const response = await fetch(stooqQuoteUrl(instrument.symbol), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "text/csv,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${instrument.label} failed with ${response.status}`);
+  }
+
+  const csv = await response.text();
+  const [headerLine, rowLine] = csv.trim().split(/\r?\n/);
+  if (!headerLine || !rowLine) {
+    throw new Error(`${instrument.label} returned no quote data`);
+  }
+
+  const headers = headerLine.split(",");
+  const values = rowLine.split(",");
+  const quote = Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]));
+  const latest = Number(quote.Close);
+  const open = Number(quote.Open);
+  const previousClose = Number.isFinite(open) ? open : latest;
+
+  if (!Number.isFinite(latest) || !Number.isFinite(previousClose)) {
+    throw new Error(`${instrument.label} has incomplete quote data`);
+  }
+
+  const dayChange = latest - previousClose;
+  const dayChangePercent = previousClose ? (dayChange / previousClose) * 100 : 0;
+  const updatedAt = quote.Date && quote.Time ? new Date(`${quote.Date}T${quote.Time}Z`).toISOString() : new Date().toISOString();
+
+  return {
+    ...instrument,
+    name: instrument.label,
+    price: latest,
+    previousClose,
+    dayChange,
+    dayChangePercent,
+    intradayChange: dayChange,
+    intradayChangePercent: dayChangePercent,
+    updatedAt,
+  };
+}
+
+function classifyMove(item) {
+  const percent = Number(item.dayChangePercent || 0);
+  const rawChange = Number(item.dayChange || 0);
+  const threshold = item.format === "yield" ? 0.005 : 0.08;
+
+  if (item.format === "yield") {
+    if (rawChange > threshold) return "up";
+    if (rawChange < -threshold) return "down";
+    return "flat";
+  }
+
+  if (percent > threshold) return "up";
+  if (percent < -threshold) return "down";
+  return "flat";
+}
+
+function marketInstrumentLabel(item) {
+  if (item.format === "yield") {
+    return `${item.price.toFixed(3)}%`;
+  }
+
+  if (item.price >= 1000) {
+    return item.price.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+
+  return item.price.toFixed(2);
+}
+
+function marketMoveLabel(item) {
+  if (item.format === "yield") {
+    const bps = item.dayChange * 100;
+    return `${bps >= 0 ? "+" : ""}${bps.toFixed(1)} bp`;
+  }
+
+  return `${item.dayChange >= 0 ? "+" : ""}${item.dayChange.toFixed(2)} (${item.dayChangePercent >= 0 ? "+" : ""}${item.dayChangePercent.toFixed(2)}%)`;
+}
+
+function headlineReactionMoveLabel(item) {
+  if (item.format === "yield") {
+    const bps = item.change * 100;
+    return `${bps >= 0 ? "+" : ""}${bps.toFixed(1)} bp`;
+  }
+
+  return `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%)`;
+}
+
+function classifyHeadlineMove(item) {
+  const threshold = item.format === "yield" ? 0.004 : 0.06;
+  const value = item.format === "yield" ? Number(item.change || 0) : Number(item.changePercent || 0);
+  if (value > threshold) return "up";
+  if (value < -threshold) return "down";
+  return "flat";
+}
+
+async function fetchHeadlineInstrumentReaction(instrument, eventTime) {
+  const response = await fetch(yahooChartRangeUrl(instrument.symbol), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${instrument.label} failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const closeValues = result?.indicators?.quote?.[0]?.close || [];
+  const points = timestamps
+    .map((timestamp, index) => ({
+      time: Number(timestamp) * 1000,
+      close: Number(closeValues[index]),
+    }))
+    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.close));
+
+  if (!points.length) {
+    throw new Error(`${instrument.label} returned no chart points`);
+  }
+
+  const baseline = points.find((point) => point.time >= eventTime) || points[0];
+  const latest = points[points.length - 1];
+  if (!baseline || !latest || latest.time <= baseline.time) {
+    throw new Error(`${instrument.label} has no post-headline movement yet`);
+  }
+
+  const change = latest.close - baseline.close;
+  const changePercent = baseline.close ? (change / baseline.close) * 100 : 0;
+  const reaction = {
+    ...instrument,
+    baselinePrice: baseline.close,
+    latestPrice: latest.close,
+    baselineAt: new Date(baseline.time).toISOString(),
+    updatedAt: new Date(latest.time).toISOString(),
+    change,
+    changePercent,
+  };
+
+  return {
+    ...reaction,
+    move: classifyHeadlineMove(reaction),
+    displayChange: headlineReactionMoveLabel(reaction),
+  };
+}
+
+function expectedHeadlineDirection(item) {
+  if (item.bias === "bullish") return 1;
+  if (item.bias === "bearish") return -1;
+  return 0;
+}
+
+function interpretHeadlineReaction(item, instruments, eventTime) {
+  const expected = expectedHeadlineDirection(item);
+  const gold = instruments.find((instrument) => instrument.id === "gold");
+  const confirmingDrivers = instruments.filter((instrument) => {
+    if (instrument.id === "gold" || !expected) return false;
+    const actual = instrument.move === "up" ? 1 : instrument.move === "down" ? -1 : 0;
+    return actual && actual * instrument.expectedForGold === expected;
+  });
+  const conflictingDrivers = instruments.filter((instrument) => {
+    if (instrument.id === "gold" || !expected) return false;
+    const actual = instrument.move === "up" ? 1 : instrument.move === "down" ? -1 : 0;
+    return actual && actual * instrument.expectedForGold === -expected;
+  });
+  const goldDirection = gold?.move === "up" ? 1 : gold?.move === "down" ? -1 : 0;
+  const elapsedMinutes = Math.max(0, Math.round((Date.now() - eventTime) / 60_000));
+
+  if (!instruments.length) {
+    return {
+      confirmation: "mixed",
+      title: "No price confirmation yet",
+      summary: "The trial reaction read could not load enough market data for this headline.",
+    };
+  }
+
+  if (!expected) {
+    return {
+      confirmation: "mixed",
+      title: "Mixed headline bias",
+      summary: `Price reaction is shown as context only because the headline bias is mixed. ${elapsedMinutes}m since headline.`,
+    };
+  }
+
+  if (goldDirection === expected && confirmingDrivers.length) {
+    return {
+      confirmation: expected > 0 ? "bullish" : "bearish",
+      title: "Price action confirms the headline",
+      summary: `Gold and ${confirmingDrivers.map((driver) => driver.label).join(", ")} moved in the expected direction. ${elapsedMinutes}m since headline.`,
+    };
+  }
+
+  if (goldDirection === expected) {
+    return {
+      confirmation: expected > 0 ? "bullish" : "bearish",
+      title: "Gold confirms, drivers are not clean",
+      summary: `Gold moved in the expected direction, but dollar/yield confirmation is incomplete. ${elapsedMinutes}m since headline.`,
+    };
+  }
+
+  if (goldDirection === -expected || conflictingDrivers.length > confirmingDrivers.length) {
+    return {
+      confirmation: "conflict",
+      title: "Price action conflicts with the headline",
+      summary: `Gold or its key drivers are moving against the expected read. Treat the headline as unconfirmed. ${elapsedMinutes}m since headline.`,
+    };
+  }
+
+  return {
+    confirmation: "mixed",
+    title: "Price reaction still forming",
+    summary: `Market movement since the headline is not decisive yet. ${elapsedMinutes}m since headline.`,
+  };
+}
+
+async function getHeadlineReaction(item) {
+  if (!item) {
+    throw new Error("Headline was not found");
+  }
+
+  const eventTime = itemTimestamp(item);
+  if (!eventTime) {
+    throw new Error("Headline has no usable timestamp");
+  }
+
+  const cacheKey = `${item.key}|${eventTime}`;
+  const cached = headlineReactionCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < HEADLINE_REACTION_CACHE_MS) {
+    return cached.payload;
+  }
+
+  const results = await Promise.allSettled(
+    HEADLINE_REACTION_SYMBOLS.map((instrument) => fetchHeadlineInstrumentReaction(instrument, eventTime))
+  );
+  const instruments = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
+  const errors = results
+    .map((result, index) =>
+      result.status === "rejected"
+        ? {
+            id: HEADLINE_REACTION_SYMBOLS[index].id,
+            label: HEADLINE_REACTION_SYMBOLS[index].label,
+            error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+          }
+        : null
+    )
+    .filter(Boolean);
+  const read = interpretHeadlineReaction(item, instruments, eventTime);
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    headlineKey: item.key,
+    headlineAt: new Date(eventTime).toISOString(),
+    sourceLabel: "Yahoo market charts",
+    reaction: {
+      ...read,
+      instruments,
+    },
+    errors,
+  };
+
+  headlineReactionCache.set(cacheKey, {
+    fetchedAt: Date.now(),
+    payload,
+  });
+
+  return payload;
+}
+
+function interpretXauusdReaction(items) {
+  const byId = Object.fromEntries(items.map((item) => [item.id, item]));
+  const gold = byId.xauusd || byId.gold;
+  const dxy = byId.dxy;
+  const us10y = byId.us10y;
+  const us02y = byId.us02y;
+  const oil = byId.oil;
+  const spx = byId.spx;
+  const goldMove = gold ? classifyMove(gold) : "flat";
+  const dxyMove = dxy ? classifyMove(dxy) : "flat";
+  const us10yMove = us10y ? classifyMove(us10y) : "flat";
+  const us02yMove = us02y ? classifyMove(us02y) : "flat";
+  const oilMove = oil ? classifyMove(oil) : "flat";
+  const spxMove = spx ? classifyMove(spx) : "flat";
+
+  let bias = "mixed";
+  let title = "XAUUSD live quote";
+  let summary = "Current XAUUSD spot quote is loaded for the market reaction panel.";
+
+  if (gold && classifyMove(gold) === "up") {
+    bias = "bullish";
+    title = "XAUUSD is higher";
+    summary = "Spot gold is trading above the current session open.";
+  } else if (gold && classifyMove(gold) === "down") {
+    bias = "bearish";
+    title = "XAUUSD is lower";
+    summary = "Spot gold is trading below the current session open.";
+  }
+
+  if (goldMove === "up" && (dxyMove === "down" || us10yMove === "down" || oilMove === "up")) {
+    bias = "bullish";
+    title = "Bullish gold confirmation";
+    summary = "Gold is rising while at least one key driver is supportive: softer dollar/yields or stronger oil/inflation pressure.";
+  } else if (goldMove === "down" && (dxyMove === "up" || us10yMove === "up" || us02yMove === "up")) {
+    bias = "bearish";
+    title = "Bearish gold confirmation";
+    summary = "Gold is falling while dollar or yields are firmer, so the market is validating pressure on XAUUSD.";
+  } else if (goldMove === "up" && (dxyMove === "up" || us10yMove === "up")) {
+    bias = "mixed";
+    title = "Gold up against headwinds";
+    summary = "Gold is rising despite firmer dollar or yields. Treat the move as fragile unless safe-haven headlines continue.";
+  } else if (goldMove === "down" && (dxyMove === "down" || us10yMove === "down")) {
+    bias = "mixed";
+    title = "Gold down despite support";
+    summary = "Gold is falling even though dollar or yields are softer. That suggests liquidation or risk-on flow may be dominating.";
+  }
+
+  const drivers = [
+    gold ? `XAUUSD ${classifyMove(gold)}` : "",
+    dxy ? `DXY ${classifyMove(dxy)}` : "",
+    us10y ? `US10Y ${classifyMove(us10y)}` : "",
+    us02y ? `US02Y ${classifyMove(us02y)}` : "",
+    oil ? `oil ${classifyMove(oil)}` : "",
+    spx ? `S&P futures ${classifyMove(spx)}` : "",
+  ].filter(Boolean);
+
+  return {
+    bias,
+    title,
+    summary,
+    drivers,
+  };
+}
+
+async function getMarketReaction(watchlist) {
+  const now = Date.now();
+  if (marketReactionCache.payload && now - marketReactionCache.fetchedAt < MARKET_REACTION_CACHE_MS) {
+    return marketReactionCache.payload;
+  }
+
+  const results = await Promise.allSettled(MARKET_REACTION_SYMBOLS.map(fetchMarketInstrument));
+  const items = results
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => ({
+      ...result.value,
+      move: classifyMove(result.value),
+      displayPrice: marketInstrumentLabel(result.value),
+      displayChange: marketMoveLabel(result.value),
+    }));
+  const errors = results
+    .map((result, index) =>
+      result.status === "rejected"
+        ? {
+            id: MARKET_REACTION_SYMBOLS[index].id,
+            label: MARKET_REACTION_SYMBOLS[index].label,
+            error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+          }
+        : null
+    )
+    .filter(Boolean);
+
+  const reaction = interpretXauusdReaction(items);
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    watchlistId: watchlist?.id || "xauusd",
+    watchlistLabel: watchlist?.label || "XAUUSD",
+    sourceLabel: "Stooq XAUUSD quote",
+    reaction,
+    items,
+    errors,
+  };
+
+  marketReactionCache = {
+    fetchedAt: now,
+    payload,
+  };
+
+  return payload;
 }
 
 function sourceAuthorityScore(sourceName) {
@@ -1914,11 +3147,43 @@ function normalizeSourceMode(value) {
 
 function normalizeTradingMode(value) {
   const mode = String(value || "tradeable").toLowerCase();
-  if (["tradeable", "support", "all"].includes(mode)) {
+  if (
+    [
+      "tradeable",
+      "support",
+      "all",
+      "market-moving",
+      "catalyst",
+      "gold",
+      "usd-rates",
+      "geopolitics",
+      "clean",
+    ].includes(mode)
+  ) {
     return mode;
   }
 
   return "tradeable";
+}
+
+function itemSearchText(item) {
+  return [
+    item.title,
+    item.summary,
+    item.generatedSummary,
+    item.whyItMatters,
+    ...(item.categories || []),
+    ...(item.symbols || []),
+    ...(item.matchedKeywords || []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function itemHasAnyText(item, keywords) {
+  const text = itemSearchText(item);
+  return keywords.some((keyword) => text.includes(keyword));
 }
 
 function matchesTimeliness(item, maxAgeHours) {
@@ -1941,15 +3206,14 @@ function matchesSignalMode(item, signalMode) {
     return Boolean(
       item.eventDriven ||
         item.impact !== "low" ||
-        Number(item.confidence || 0) >= 58 ||
+        Number(item.confidence || 0) >= 52 ||
         Number(item.combinedCount || 1) > 1
     );
   }
 
   return Boolean(
-    item.eventDriven &&
-      item.urgency !== "background" &&
-      (item.impact !== "low" || Number(item.confidence || 0) >= 62 || Number(item.combinedCount || 1) > 1)
+    item.urgency !== "background" &&
+      (item.eventDriven || item.impact !== "low" || Number(item.confidence || 0) >= 58 || Number(item.combinedCount || 1) > 1)
   );
 }
 
@@ -1983,18 +3247,116 @@ function matchesTradingUsefulness(item, tradingMode) {
   const hasAssetLink = (item.symbols || []).length > 0 || (item.categories || []).length > 0;
   const hasDecisionSignal =
     item.eventDriven || item.impact !== "low" || Number(item.confidence || 0) >= 58 || Number(item.combinedCount || 1) > 1;
+  const categories = item.categories || [];
+  const symbols = item.symbols || [];
+  const score = Number(item.score || 0);
+  const isMarketMoving = Boolean(
+    item.eventDriven ||
+      item.urgency === "immediate" ||
+      item.impact === "high" ||
+      Number(item.combinedCount || 1) > 1 ||
+      (score >= 10 && Number(item.confidence || 0) >= 58)
+  );
+
+  if (mode === "market-moving") {
+    return Boolean(sourceScore >= 1.2 && hasAssetLink && item.urgency !== "background" && isMarketMoving);
+  }
+
+  if (mode === "catalyst") {
+    return Boolean(
+      sourceScore >= 1.2 &&
+        hasAssetLink &&
+        (item.eventDriven ||
+          categories.some((category) => ["Macro", "Rates"].includes(category)) ||
+          itemHasAnyText(item, [
+            "cpi",
+            "pce",
+            "nfp",
+            "nonfarm",
+            "payrolls",
+            "jobless claims",
+            "fomc",
+            "powell",
+            "fed",
+            "treasury auction",
+            "gdp",
+            "pmi",
+            "ism",
+          ]))
+    );
+  }
+
+  if (mode === "gold") {
+    return Boolean(
+      sourceScore >= 1.2 &&
+        (symbols.includes("XAUUSD") ||
+          symbols.includes("GLD") ||
+          itemHasAnyText(item, ["xauusd", "gold", "bullion", "kitco", "precious metal"]))
+    );
+  }
+
+  if (mode === "usd-rates") {
+    return Boolean(
+      sourceScore >= 1.2 &&
+        (categories.some((category) => ["Macro", "Rates"].includes(category)) ||
+          symbols.includes("DXY") ||
+          symbols.includes("US10Y") ||
+          itemHasAnyText(item, ["dollar", "dxy", "fed", "fomc", "powell", "treasury", "yield", "rate cut", "rate hike"]))
+    );
+  }
+
+  if (mode === "geopolitics") {
+    return Boolean(
+      sourceScore >= 1.2 &&
+        (categories.includes("Geopolitics") ||
+          itemHasAnyText(item, ["war", "missile", "attack", "sanctions", "tariff", "middle east", "iran", "israel", "russia", "ukraine", "oil"]))
+    );
+  }
+
+  if (mode === "clean") {
+    return Boolean(
+      sourceScore >= 1.5 &&
+        hasAssetLink &&
+        item.urgency !== "background" &&
+        item.impact !== "low" &&
+        Number(item.confidence || 0) >= 55 &&
+        !itemHasAnyText(item, LOW_SIGNAL_KEYWORDS)
+    );
+  }
 
   if (mode === "support") {
-    return Boolean(sourceScore >= 1.5 && hasAssetLink && hasDecisionSignal);
+    return Boolean(sourceScore >= 0.9 && hasAssetLink && hasDecisionSignal);
   }
 
   return Boolean(
-    sourceScore >= 1.5 &&
+    sourceScore >= 1.2 &&
       hasAssetLink &&
       item.urgency !== "background" &&
-      (item.eventDriven || item.impact === "high") &&
-      (Number(item.confidence || 0) >= 62 || Number(item.combinedCount || 1) > 1 || item.impact === "high")
+      (item.eventDriven || item.impact !== "low" || Number(item.confidence || 0) >= 58 || Number(item.combinedCount || 1) > 1)
   );
+}
+
+function buildTradingWhyItMatters(item, context = {}) {
+  const baseReason =
+    buildMarketContextSentence(item) ||
+    buildMechanismSentence(item) ||
+    "Markets care because this can affect the active watchlist through rates, risk appetite, or asset-specific flow.";
+  const qualifiers = [];
+
+  if (context.eventDriven || item.eventDriven) {
+    qualifiers.push("event-driven");
+  }
+  if ((context.sourceQuality || item.sourceAuthorityScore || 0) >= 2) {
+    qualifiers.push("higher-trust source");
+  }
+  if ((context.recency || 0) >= 2) {
+    qualifiers.push("fresh");
+  }
+  if ((context.uniqueSources || item.combinedCount || 1) > 1) {
+    qualifiers.push(`confirmed by ${context.uniqueSources || item.combinedCount} sources`);
+  }
+
+  return qualifiers.length ? `${baseReason} Signal quality: ${qualifiers.join(", ")}.` : baseReason;
 }
 
 function analyzeItem(rawItem, watchlist) {
@@ -2039,25 +3401,7 @@ function analyzeItem(rawItem, watchlist) {
   const impact = formatImpact(score);
   const urgency = formatUrgency(urgentHits + (impact === "high" ? 1 : 0));
   const bias = inferBias(text);
-  const whyItMattersParts = [];
-
-  if (categories.length) {
-    whyItMattersParts.push(`${eventDriven ? "event-driven " : ""}${categories.join(" / ")} headline`);
-  }
-  if (symbols.length) {
-    whyItMattersParts.push(`likely watch symbols: ${symbols.slice(0, 5).join(", ")}`);
-  }
-  if (matchedFocus.length) {
-    whyItMattersParts.push(`matched terms: ${matchedFocus.slice(0, 4).join(", ")}`);
-  }
-  if (sourceQuality >= 2) {
-    whyItMattersParts.push(`higher-trust source`);
-  }
-  if (recency >= 2) {
-    whyItMattersParts.push(`very recent`);
-  }
-
-  return {
+  const analyzedItem = {
     key: normalizeKey(split.cleanTitle, rawItem.link),
     title: split.cleanTitle,
     link: rawItem.link,
@@ -2080,8 +3424,12 @@ function analyzeItem(rawItem, watchlist) {
     symbols,
     actualSymbols,
     matchedKeywords: matchedFocus,
-    whyItMatters: whyItMattersParts.join(" | "),
     filteredOut: shouldSuppressItem(split.cleanTitle, rawItem.description, categories, matchedFocus),
+  };
+
+  return {
+    ...analyzedItem,
+    whyItMatters: buildTradingWhyItMatters(analyzedItem, { eventDriven, sourceQuality, recency }),
   };
 }
 
@@ -2095,6 +3443,7 @@ class NewsMonitor {
     this.lastCheckedAt = null;
     this.lastSuccessfulPollAt = null;
     this.lastError = "";
+    this.feedErrors = [];
     this.inFlight = null;
     this.intervalHandle = null;
   }
@@ -2134,7 +3483,7 @@ class NewsMonitor {
     this.pruneExpiredItems();
     this.lastCheckedAt = new Date().toISOString();
 
-    this.inFlight = Promise.all(
+    this.inFlight = Promise.allSettled(
       this.watchlist.feeds.map(async (feed) => {
         const response = await fetch(feed.url, {
           headers: {
@@ -2151,7 +3500,26 @@ class NewsMonitor {
         return parseFeed(xmlText, feed).map((item) => analyzeItem(item, this.watchlist));
       })
     )
-      .then((responses) => {
+      .then((results) => {
+        const responses = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
+        const feedErrors = results
+          .map((result, index) => {
+            if (result.status === "fulfilled") {
+              return null;
+            }
+
+            return {
+              id: this.watchlist.feeds[index].id,
+              label: this.watchlist.feeds[index].label,
+              error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+            };
+          })
+          .filter(Boolean);
+
+        if (!responses.length) {
+          throw new Error(feedErrors.map((feedError) => feedError.error).join("; ") || "All feeds failed");
+        }
+
         const now = Date.now();
         const merged = new Map(this.items.map((item) => [item.key, { ...item, isNew: false }]));
 
@@ -2186,9 +3554,11 @@ class NewsMonitor {
 
         this.lastSuccessfulPollAt = new Date().toISOString();
         this.lastError = "";
+        this.feedErrors = feedErrors;
       })
       .catch((error) => {
         this.lastError = error instanceof Error ? error.message : String(error);
+        this.feedErrors = this.watchlist.feeds.map((feed) => ({ id: feed.id, label: feed.label, error: this.lastError }));
       })
       .finally(() => {
         this.inFlight = null;
@@ -2214,6 +3584,7 @@ class NewsMonitor {
       lastCheckedAt: this.lastCheckedAt,
       lastSuccessfulPollAt: this.lastSuccessfulPollAt,
       lastError: this.lastError,
+      feedErrors: this.feedErrors,
       feeds: this.watchlist.feeds.map((feed) => ({ id: feed.id, label: feed.label })),
     };
   }
@@ -2324,7 +3695,7 @@ class NewsMonitor {
 class NewsService {
   constructor(options = {}) {
     this.monitors = new Map(
-      Object.values(WATCHLISTS).map((watchlist) => [watchlist.id, new NewsMonitor(watchlist, options)])
+      [WATCHLISTS.xauusd].map((watchlist) => [watchlist.id, new NewsMonitor(watchlist, options)])
     );
   }
 
@@ -2337,7 +3708,7 @@ class NewsService {
   }
 
   getWatchlists() {
-    return Object.values(WATCHLISTS).map((watchlist) => ({
+    return [WATCHLISTS.xauusd].map((watchlist) => ({
       id: watchlist.id,
       label: watchlist.label,
       description: watchlist.description,
@@ -2359,7 +3730,25 @@ class NewsService {
 
   getCatalysts(id, options) {
     const monitor = this.getMonitor(id);
-    return getUpcomingCatalysts(monitor.watchlist, options);
+    const relatedItems = monitor.getItems({
+      limit: MAX_ITEMS,
+      minScore: 0,
+      maxAgeHours: 48,
+      signalMode: "broad",
+      sourceMode: "all",
+      tradingMode: "all",
+    });
+    return getUpcomingCatalysts(monitor.watchlist, { ...options, relatedItems });
+  }
+
+  async getMarketReaction(id) {
+    const monitor = this.getMonitor(id);
+    return getMarketReaction(monitor.watchlist);
+  }
+
+  async getHeadlineReaction(id, key) {
+    const monitor = this.getMonitor(id);
+    return getHeadlineReaction(monitor.findItem(key));
   }
 
   async refresh(id) {

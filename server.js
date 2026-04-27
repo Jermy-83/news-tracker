@@ -46,13 +46,13 @@ function createAppServer({ port = Number(process.env.PORT || 3180) } = {}) {
     }
 
     if (requestUrl.pathname === "/api/news/status") {
-      const watchlist = requestUrl.searchParams.get("watchlist") || "nasdaq";
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
       sendJson(res, 200, { status: newsService.getStatus(watchlist) });
       return;
     }
 
     if (requestUrl.pathname === "/api/news/items") {
-      const watchlist = requestUrl.searchParams.get("watchlist") || "nasdaq";
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
       const limit = requestUrl.searchParams.get("limit");
       const minScore = requestUrl.searchParams.get("minScore") || "4";
       const maxAgeHours = requestUrl.searchParams.get("maxAgeHours");
@@ -65,12 +65,53 @@ function createAppServer({ port = Number(process.env.PORT || 3180) } = {}) {
       return;
     }
 
+    if (requestUrl.pathname === "/api/market/reaction") {
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
+      newsService
+        .getMarketReaction(watchlist)
+        .then((reaction) => {
+          sendJson(res, 200, { reaction });
+        })
+        .catch((error) => {
+          sendJson(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/news/reaction") {
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
+      const key = requestUrl.searchParams.get("key") || "";
+      newsService
+        .getHeadlineReaction(watchlist, key)
+        .then((reaction) => {
+          sendJson(res, 200, { reaction });
+        })
+        .catch((error) => {
+          sendJson(res, 404, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return;
+    }
+
     if (requestUrl.pathname === "/api/news/catalysts") {
       const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
       const hours = requestUrl.searchParams.get("hours") || "168";
-      sendJson(res, 200, {
-        catalysts: newsService.getCatalysts(watchlist, { hours }),
-      });
+      newsService
+        .getCatalysts(watchlist, { hours })
+        .then((catalysts) => {
+          sendJson(res, 200, { catalysts });
+        })
+        .catch((error) => {
+          sendJson(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
       return;
     }
 
@@ -92,7 +133,7 @@ function createAppServer({ port = Number(process.env.PORT || 3180) } = {}) {
     }
 
     if (requestUrl.pathname === "/api/news/refresh") {
-      const watchlist = requestUrl.searchParams.get("watchlist") || "nasdaq";
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
       newsService
         .refresh(watchlist)
         .then(() => {
