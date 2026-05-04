@@ -1,6 +1,10 @@
+const fs = require("fs");
+const path = require("path");
+
 const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 60_000);
 const MAX_ITEMS = 400;
 const ITEM_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
+const ARTICLE_LOG_DIR = process.env.NEWS_ARTICLE_LOG_DIR || path.join(process.cwd(), "article-log");
 
 const WATCHLISTS = {
   nasdaq: {
@@ -140,6 +144,16 @@ const WATCHLISTS = {
         label: "US Data Search",
         url: "https://news.google.com/rss/search?q=US+CPI+OR+PCE+OR+FOMC+OR+%22jobless+claims%22+OR+%22nonfarm+payrolls%22+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
+      {
+        id: "global-market-moving",
+        label: "Global Shock Risk",
+        url: "https://news.google.com/rss/search?q=%28%22stock+market+crash%22+OR+%22global+markets%22+OR+%22risk+off%22+OR+%22VIX+spikes%22+OR+%22banking+crisis%22+OR+%22credit+crunch%22+OR+%22emergency+Fed%22+OR+%22emergency+rate+cut%22+OR+%22Treasury+market%22+OR+%22bond+market+rout%22+OR+%22oil+shock%22+OR+%22OPEC+shock%22+OR+%22China+crisis%22+OR+%22BOJ+intervention%22+OR+%22geopolitical+escalation%22+OR+%22crypto+crash%22%29+when:12h+-opinion+-analysis+-forecast&hl=en-US&gl=US&ceid=US:en",
+      },
+      {
+        id: "trump-x-statement-risk",
+        label: "Trump / X Statement Risk",
+        url: "https://news.google.com/rss/search?q=%28Trump+OR+%22Donald+Trump%22%29+%28X+OR+Twitter+OR+tweet+OR+posted+OR+%22Truth+Social%22+OR+says%29+%28tariff+OR+Fed+OR+dollar+OR+gold+OR+oil+OR+China+OR+Iran+OR+sanctions%29+when:12h+-opinion+-analysis+-column&hl=en-US&gl=US&ceid=US:en",
+      },
     ],
     focusKeywords: [
       "gold",
@@ -166,6 +180,32 @@ const WATCHLISTS = {
       "safe haven",
       "real yields",
       "crude inventories",
+      "trump",
+      "donald trump",
+      "twitter",
+      "tweet",
+      "truth social",
+      "tariff",
+      "china",
+      "iran",
+      "political risk",
+      "vix",
+      "volatility",
+      "risk off",
+      "stock market crash",
+      "global markets",
+      "banking crisis",
+      "credit crunch",
+      "emergency fed",
+      "emergency rate cut",
+      "bond market rout",
+      "oil shock",
+      "opec shock",
+      "china crisis",
+      "geopolitical escalation",
+      "crypto crash",
+      "boj",
+      "intervention",
     ],
   },
   btc: {
@@ -241,7 +281,9 @@ const CATALYST_FEED_CACHE_MS = 5 * 60 * 1000;
 const MARKET_REACTION_CACHE_MS = 5 * 1000;
 const HEADLINE_REACTION_CACHE_MS = 30 * 1000;
 const MARKET_REACTION_SYMBOLS = [
-  { id: "xauusd", label: "XAUUSD", symbol: "xauusd", role: "spot gold", format: "price", source: "stooq" },
+  { id: "xauusd", label: "XAUUSD", symbol: "xauusd", role: "live quote", format: "price", source: "stooq" },
+  { id: "dxy", label: "DXY", symbol: "DX-Y.NYB", role: "dollar driver", format: "price", visible: false },
+  { id: "us10y", label: "US10Y", symbol: "^TNX", role: "yield driver", format: "yield", visible: false },
 ];
 const HEADLINE_REACTION_SYMBOLS = [
   { id: "gold", label: "Gold futures", symbol: "GC=F", role: "gold proxy", format: "price", expectedForGold: 1 },
@@ -256,6 +298,11 @@ let forexFactoryCalendarCache = {
 };
 
 let marketReactionCache = {
+  fetchedAt: 0,
+  payload: null,
+};
+
+let goldVolatilityCache = {
   fetchedAt: 0,
   payload: null,
 };
@@ -411,6 +458,9 @@ const CATEGORY_RULES = [
   { id: "earnings", label: "Earnings", keywords: ["earnings", "guidance", "forecast", "results", "revenue", "profit", "margin"] },
   { id: "semis", label: "Semis", keywords: ["semiconductor", "chip", "nvidia", "amd", "broadcom", "tsmc", "asml"] },
   { id: "geopolitics", label: "Geopolitics", keywords: ["war", "missile", "sanctions", "strait", "oil", "tariff", "export curbs"] },
+  { id: "political-risk", label: "Political Risk", keywords: ["trump", "donald trump", "twitter", "tweet", "truth social", "x post", "white house"] },
+  { id: "global-shock", label: "Global Shock", keywords: ["stock market crash", "global markets", "vix spikes", "risk off", "banking crisis", "credit crunch", "emergency fed", "emergency rate cut", "bond market rout", "oil shock", "opec shock", "china crisis", "geopolitical escalation", "crypto crash"] },
+  { id: "global-central-banks", label: "Global Central Banks", keywords: ["boj intervention", "ecb emergency", "bank of japan intervention", "emergency central bank", "currency intervention"] },
   { id: "crypto", label: "Crypto", keywords: ["bitcoin", "btc", "crypto", "etf", "stablecoin", "exchange", "token"] },
 ];
 
@@ -422,6 +472,7 @@ const SYMBOL_RULES = [
   { symbols: ["NFLX"], keywords: ["netflix", "subscriber"] },
   { symbols: ["TSLA"], keywords: ["tesla", "ev", "autonomous"] },
   { symbols: ["XAUUSD", "DXY", "US10Y"], keywords: ["gold", "bullion", "dollar", "yield", "treasury"] },
+  { symbols: ["SPX", "VIX", "DXY", "US10Y"], keywords: ["stock market crash", "global markets", "vix", "risk off", "banking crisis", "credit crunch", "bond market rout", "emergency fed", "emergency rate cut"] },
   { symbols: ["BTCUSD", "ETHUSD", "COIN", "MSTR", "IBIT"], keywords: ["bitcoin", "btc", "crypto", "coinbase", "microstrategy", "etf"] },
 ];
 
@@ -441,9 +492,26 @@ const HIGH_IMPACT_KEYWORDS = [
   "sanctions",
   "oil",
   "war",
+  "trump",
+  "truth social",
+  "tweet",
   "export curbs",
   "missile",
   "etf",
+  "vix",
+  "stock market crash",
+  "global markets",
+  "banking crisis",
+  "credit crunch",
+  "bond market rout",
+  "emergency fed",
+  "emergency rate cut",
+  "oil shock",
+  "opec shock",
+  "china crisis",
+  "geopolitical escalation",
+  "crypto crash",
+  "boj intervention",
 ];
 
 const URGENT_KEYWORDS = [
@@ -463,6 +531,18 @@ const URGENT_KEYWORDS = [
   "attack",
   "closed",
   "reopens",
+  "trump says",
+  "trump posts",
+  "truth social",
+  "tweet",
+  "risk off",
+  "vix spikes",
+  "banking crisis",
+  "credit crunch",
+  "emergency rate cut",
+  "emergency fed",
+  "oil shock",
+  "crypto crash",
 ];
 
 const BULLISH_KEYWORDS = [
@@ -2705,12 +2785,396 @@ function headlineReactionMoveLabel(item) {
   return `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%)`;
 }
 
+function goldHourMoveLabel(item) {
+  return `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%)`;
+}
+
 function classifyHeadlineMove(item) {
   const threshold = item.format === "yield" ? 0.004 : 0.06;
   const value = item.format === "yield" ? Number(item.change || 0) : Number(item.changePercent || 0);
   if (value > threshold) return "up";
   if (value < -threshold) return "down";
   return "flat";
+}
+
+async function fetchGoldRecentVolatility() {
+  const now = Date.now();
+  if (goldVolatilityCache.payload && now - goldVolatilityCache.fetchedAt < 60_000) {
+    return goldVolatilityCache.payload;
+  }
+
+  const response = await fetch(yahooChartRangeUrl("GC=F", "1d", "5m"), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gold volatility failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const closeValues = result?.indicators?.quote?.[0]?.close || [];
+  const points = timestamps
+    .map((timestamp, index) => ({
+      time: Number(timestamp) * 1000,
+      close: Number(closeValues[index]),
+    }))
+    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.close) && point.close > 0);
+
+  if (points.length < 2) {
+    throw new Error("Gold volatility returned no recent points");
+  }
+
+  const latest = points[points.length - 1];
+  const recentPoints = points.filter((point) => latest.time - point.time <= 90 * 60_000);
+  const changes = [];
+  for (let index = 1; index < recentPoints.length; index += 1) {
+    changes.push(Math.abs(recentPoints[index].close - recentPoints[index - 1].close));
+  }
+
+  const averageFiveMinuteMove = changes.length
+    ? changes.reduce((total, value) => total + value, 0) / changes.length
+    : 4;
+  const thirtyMinuteRange = recentPoints
+    .filter((point) => latest.time - point.time <= 30 * 60_000)
+    .reduce(
+      (range, point) => ({
+        high: Math.max(range.high, point.close),
+        low: Math.min(range.low, point.close),
+      }),
+      { high: latest.close, low: latest.close }
+    );
+  const thirtyMinuteMove = thirtyMinuteRange.high - thirtyMinuteRange.low;
+  const sixtyMinutePoints = recentPoints.filter((point) => latest.time - point.time <= 60 * 60_000);
+  const oneHourRange = sixtyMinutePoints.reduce(
+    (range, point) => ({
+      high: Math.max(range.high, point.close),
+      low: Math.min(range.low, point.close),
+    }),
+    { high: latest.close, low: latest.close }
+  );
+  const thirtyMinuteBaseline = [...recentPoints].reverse().find((point) => latest.time - point.time >= 30 * 60_000) || recentPoints[0];
+  const sixtyMinuteBaseline = [...recentPoints].reverse().find((point) => latest.time - point.time >= 60 * 60_000) || recentPoints[0];
+  const move30 = latest.close - thirtyMinuteBaseline.close;
+  const move60 = latest.close - sixtyMinuteBaseline.close;
+  const oneHourRangeSize = oneHourRange.high - oneHourRange.low;
+  const rangePosition = oneHourRangeSize > 0 ? (latest.close - oneHourRange.low) / oneHourRangeSize : 0.5;
+  const stretchedUp = oneHourRangeSize > 0 && rangePosition >= 0.82 && move30 > averageFiveMinuteMove * 2.2;
+  const stretchedDown = oneHourRangeSize > 0 && rangePosition <= 0.18 && move30 < -averageFiveMinuteMove * 2.2;
+  const cap = clamp(Math.max(8, averageFiveMinuteMove * 3.2, thirtyMinuteMove * 0.65), 8, 16);
+
+  goldVolatilityCache = {
+    fetchedAt: now,
+    payload: {
+      averageFiveMinuteMove: Number(averageFiveMinuteMove.toFixed(2)),
+      thirtyMinuteRange: Number(thirtyMinuteMove.toFixed(2)),
+      oneHourRange: Number(oneHourRangeSize.toFixed(2)),
+      move30: Number(move30.toFixed(2)),
+      move60: Number(move60.toFixed(2)),
+      rangePosition: Number(rangePosition.toFixed(2)),
+      support: Number(oneHourRange.low.toFixed(2)),
+      resistance: Number(oneHourRange.high.toFixed(2)),
+      stretchedUp,
+      stretchedDown,
+      cap: Number(cap.toFixed(2)),
+      updatedAt: new Date(latest.time).toISOString(),
+    },
+  };
+
+  return goldVolatilityCache.payload;
+}
+
+async function fetchGoldPastHourMove() {
+  const instrument = { id: "gold", label: "Gold futures", symbol: "GC=F", format: "price" };
+  const response = await fetch(yahooChartRangeUrl(instrument.symbol, "1d", "5m"), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gold chart failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const closeValues = result?.indicators?.quote?.[0]?.close || [];
+  const points = timestamps
+    .map((timestamp, index) => ({
+      time: Number(timestamp) * 1000,
+      close: Number(closeValues[index]),
+    }))
+    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.close));
+
+  if (!points.length) {
+    throw new Error("Gold chart returned no recent points");
+  }
+
+  const latest = points[points.length - 1];
+  const oneHourAgo = latest.time - 60 * 60 * 1000;
+  const baseline = [...points].reverse().find((point) => point.time <= oneHourAgo) || points[0];
+  const change = latest.close - baseline.close;
+  const changePercent = baseline.close ? (change / baseline.close) * 100 : 0;
+  const move = {
+    ...instrument,
+    baselinePrice: baseline.close,
+    latestPrice: latest.close,
+    baselineAt: new Date(baseline.time).toISOString(),
+    updatedAt: new Date(latest.time).toISOString(),
+    change,
+    changePercent,
+  };
+
+  return {
+    ...move,
+    direction: classifyHeadlineMove(move),
+    displayChange: goldHourMoveLabel(move),
+    summary: `From ${baseline.close.toFixed(2)} to ${latest.close.toFixed(2)} using recent 5-minute gold futures data.`,
+  };
+}
+
+async function fetchGoldPastHoursMove(hours = 4) {
+  const response = await fetch(yahooChartRangeUrl("GC=F", "1d", "5m"), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gold multi-hour chart failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const closeValues = result?.indicators?.quote?.[0]?.close || [];
+  const points = timestamps
+    .map((timestamp, index) => ({
+      time: Number(timestamp) * 1000,
+      close: Number(closeValues[index]),
+    }))
+    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.close) && point.close > 0);
+
+  if (!points.length) {
+    return null;
+  }
+
+  const latest = points[points.length - 1];
+  const lookbackMs = clamp(Number(hours) || 4, 2, 8) * 60 * 60 * 1000;
+  const baseline = [...points].reverse().find((point) => latest.time - point.time >= lookbackMs) || points[0];
+  const change = latest.close - baseline.close;
+  const changePercent = baseline.close ? (change / baseline.close) * 100 : 0;
+
+  return {
+    hours: clamp(Number(hours) || 4, 2, 8),
+    baselinePrice: Number(baseline.close.toFixed(2)),
+    latestPrice: Number(latest.close.toFixed(2)),
+    baselineAt: new Date(baseline.time).toISOString(),
+    updatedAt: new Date(latest.time).toISOString(),
+    change: Number(change.toFixed(2)),
+    changePercent: Number(changePercent.toFixed(2)),
+    direction: classifyHeadlineMove({ change, changePercent, format: "price" }),
+  };
+}
+
+function pickGoldHourReason(items, direction) {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  const candidates = items
+    .filter((item) => item && !item.filteredOut)
+    .filter((item) => itemTimestamp(item) >= cutoff)
+    .filter((item) => Number(item.score || 0) >= 8 || item.impact === "high" || item.urgency === "immediate")
+    .filter((item) => {
+      if (direction === "up") return item.bias === "bullish" || item.bias === "mixed";
+      if (direction === "down") return item.bias === "bearish" || item.bias === "mixed";
+      return true;
+    })
+    .sort((left, right) => {
+      const scoreDiff = Number(right.score || 0) - Number(left.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return itemTimestamp(right) - itemTimestamp(left);
+    });
+
+  const item = candidates[0];
+  if (!item) {
+    return {
+      driver: "NONE",
+      title: "",
+      summary: "No major matching headline from the last two hours is strong enough to explain the move.",
+    };
+  }
+
+  return {
+    driver: classifyReasonDriver(item),
+    key: item.key,
+    title: item.title,
+    sourceName: item.sourceName,
+    publishedAt: item.publishedAt || item.firstSeenAt,
+    score: item.score,
+    bias: item.bias,
+    summary: item.whyItMatters || item.generatedSummary || item.summary || "Recent high-impact headline matched the current gold direction.",
+  };
+}
+
+function classifyReasonDriver(item) {
+  const text = `${item?.title || ""} ${item?.whyItMatters || ""} ${(item?.matchedKeywords || []).join(" ")}`.toLowerCase();
+  if (/\bfed\b|fomc|rate|yield|treasury|dollar|usd|inflation|cpi|pce|jobs|nfp/.test(text)) return "MACRO";
+  if (/war|geopolitic|sanction|oil|middle east|attack|ceasefire|risk off|safe-haven/.test(text)) return "HAVEN";
+  if (/trump|tariff|china|trade war/.test(text)) return "POLICY";
+  if (/gold|xauusd|bullion/.test(text)) return "GOLD";
+  return "NEWS";
+}
+
+function describeGoldDriver(driver, direction) {
+  if (driver === "MACRO") {
+    return direction === "up"
+      ? "That usually means rates or dollar expectations softened enough to support gold."
+      : direction === "down"
+        ? "That usually means rates or dollar expectations firmed enough to pressure gold."
+        : "That points to macro pricing without a strong directional follow-through.";
+  }
+
+  if (driver === "HAVEN") {
+    return direction === "up"
+      ? "That reads like safe-haven buying into uncertainty or geopolitical stress."
+      : direction === "down"
+        ? "That suggests haven demand faded and traders rotated away from defensive positioning."
+        : "That points to haven headlines, but without a decisive move in gold.";
+  }
+
+  if (driver === "POLICY") {
+    return direction === "up"
+      ? "That suggests policy risk increased uncertainty enough to support bullion."
+      : direction === "down"
+        ? "That suggests policy headlines favored the dollar or reduced demand for gold protection."
+        : "That points to policy noise without a clear gold trend.";
+  }
+
+  if (driver === "GOLD") {
+    return direction === "up"
+      ? "That looks like gold-specific buying rather than a broad macro move."
+      : direction === "down"
+        ? "That looks like gold-specific selling or liquidation."
+        : "That points to gold-specific flow without a strong directional break.";
+  }
+
+  return direction === "up"
+    ? "That suggests buyers stayed in control even without one dominant macro headline."
+    : direction === "down"
+      ? "That suggests sellers stayed in control even without one dominant macro headline."
+      : "That suggests mixed flow rather than one clean driver.";
+}
+
+function buildGoldMultiHourSummary(relatedItems, move) {
+  const alignedItems = (Array.isArray(relatedItems) ? relatedItems : [])
+    .filter((item) => item && !item.filteredOut)
+    .filter((item) => Number(item.score || 0) >= 7 || item.impact === "high" || item.urgency === "immediate")
+    .filter((item) => {
+      if (move.direction === "up") return item.bias === "bullish" || item.bias === "mixed";
+      if (move.direction === "down") return item.bias === "bearish" || item.bias === "mixed";
+      return true;
+    })
+    .sort((left, right) => {
+      const scoreDiff = Number(right.score || 0) - Number(left.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return itemTimestamp(right) - itemTimestamp(left);
+    })
+    .slice(0, 3);
+
+  const driverCounts = alignedItems.reduce((counts, item) => {
+    const driver = classifyReasonDriver(item);
+    counts[driver] = (counts[driver] || 0) + 1;
+    return counts;
+  }, {});
+  const topDriver =
+    Object.entries(driverCounts).sort((left, right) => right[1] - left[1])[0]?.[0] ||
+    (move.direction === "up" || move.direction === "down" ? "MACRO" : "NONE");
+  const headlines = alignedItems.map((item) => ({
+    title: item.title,
+    sourceName: item.sourceName,
+    bias: item.bias,
+    score: item.score,
+    publishedAt: item.publishedAt || item.firstSeenAt,
+    why: item.whyItMatters || item.generatedSummary || item.summary || "",
+  }));
+  const moveText =
+    move.direction === "up"
+      ? `Gold rose ${move.change.toFixed(2)} over the last ${move.hours} hours.`
+      : move.direction === "down"
+        ? `Gold fell ${Math.abs(move.change).toFixed(2)} over the last ${move.hours} hours.`
+        : `Gold stayed broadly flat over the last ${move.hours} hours.`;
+  const moveContext =
+    move.direction === "up"
+      ? "The tape has been favoring upside flow."
+      : move.direction === "down"
+        ? "The tape has been favoring downside pressure."
+        : "Price action has been range-bound.";
+  const keyTakeaway = headlines.length
+    ? `${headlines[0].sourceName} led the news tape with: ${headlines[0].title}`
+    : "No strong gold-relevant headline cluster stood out in the last few hours.";
+  const driverEffect = describeGoldDriver(topDriver, move.direction);
+
+  return {
+    driver: topDriver,
+    move,
+    summary: `${moveText} ${moveContext}`,
+    takeaway: keyTakeaway,
+    narrative: headlines.length ? `Likely driver: ${topDriver}. ${driverEffect}` : `Likely driver remains unclear. ${driverEffect}`,
+    composed:
+      headlines.length > 0
+        ? `${moveText} ${moveContext} The clearest theme was ${topDriver.toLowerCase()} flow. ${driverEffect} ${headlines[0].sourceName} was the main headline source, and the key message was: ${headlines[0].why || headlines[0].title}`
+        : `${moveText} ${moveContext} ${driverEffect} No strong gold-specific headline cluster stood out, so the move looks more flow-driven than headline-driven.`,
+    headlines,
+  };
+}
+
+function buildGoldNewsOnlySummary(relatedItems, hours) {
+  const items = (Array.isArray(relatedItems) ? relatedItems : [])
+    .filter((item) => item && !item.filteredOut)
+    .filter((item) => Number(item.score || 0) >= 7 || item.impact === "high" || item.urgency === "immediate")
+    .sort((left, right) => {
+      const scoreDiff = Number(right.score || 0) - Number(left.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return itemTimestamp(right) - itemTimestamp(left);
+    })
+    .slice(0, 3);
+
+  const driverCounts = items.reduce((counts, item) => {
+    const driver = classifyReasonDriver(item);
+    counts[driver] = (counts[driver] || 0) + 1;
+    return counts;
+  }, {});
+  const topDriver = Object.entries(driverCounts).sort((left, right) => right[1] - left[1])[0]?.[0] || "NEWS";
+  const driverEffect = describeGoldDriver(topDriver, "flat");
+
+  return {
+    driver: topDriver,
+    move: {
+      hours,
+      change: 0,
+      direction: "flat",
+    },
+    summary: `Recent chart data is unavailable, but the strongest gold-relevant headlines from the last ${hours} hours point to ${topDriver.toLowerCase()} flow.`,
+    takeaway: items.length ? `${items[0].sourceName} led the tape with: ${items[0].title}` : "No strong recent gold-relevant headline cluster was available.",
+    narrative: `Likely driver: ${topDriver}. ${driverEffect}`,
+    composed: items.length
+      ? `Chart-based gold movement is unavailable right now, but the strongest news from the last ${hours} hours points to ${topDriver.toLowerCase()} flow. ${driverEffect} The main headline cluster was led by ${items[0].sourceName}, which suggests ${items[0].whyItMatters || items[0].generatedSummary || items[0].summary || items[0].title}.`
+      : `Chart-based gold movement is unavailable right now, and there was no strong gold-relevant headline cluster in the last ${hours} hours. ${driverEffect}`,
+    headlines: items.map((item) => ({
+      title: item.title,
+      sourceName: item.sourceName,
+      bias: item.bias,
+      score: item.score,
+      publishedAt: item.publishedAt || item.firstSeenAt,
+      why: item.whyItMatters || item.generatedSummary || item.summary || "",
+    })),
+  };
 }
 
 async function fetchHeadlineInstrumentReaction(instrument, eventTime) {
@@ -2917,11 +3381,11 @@ function interpretXauusdReaction(items) {
 
   if (goldMove === "up" && (dxyMove === "down" || us10yMove === "down" || oilMove === "up")) {
     bias = "bullish";
-    title = "Bullish gold confirmation";
+    title = "Gold has driver support";
     summary = "Gold is rising while at least one key driver is supportive: softer dollar/yields or stronger oil/inflation pressure.";
   } else if (goldMove === "down" && (dxyMove === "up" || us10yMove === "up" || us02yMove === "up")) {
     bias = "bearish";
-    title = "Bearish gold confirmation";
+    title = "Gold is under pressure";
     summary = "Gold is falling while dollar or yields are firmer, so the market is validating pressure on XAUUSD.";
   } else if (goldMove === "up" && (dxyMove === "up" || us10yMove === "up")) {
     bias = "mixed";
@@ -2947,6 +3411,69 @@ function interpretXauusdReaction(items) {
     title,
     summary,
     drivers,
+  };
+}
+
+function buildMarketRegime(items) {
+  const byId = Object.fromEntries(items.map((item) => [item.id, item]));
+  const gold = byId.xauusd || byId.gold;
+  const dxy = byId.dxy;
+  const us10y = byId.us10y;
+  const goldMove = gold ? classifyMove(gold) : "flat";
+  const dxyMove = dxy ? classifyMove(dxy) : "flat";
+  const us10yMove = us10y ? classifyMove(us10y) : "flat";
+
+  if (!gold) {
+    return {
+      label: "Market regime loading",
+      tone: "mixed",
+      summary: "Waiting for XAUUSD before classifying the current gold regime.",
+    };
+  }
+
+  if (goldMove === "flat") {
+    return {
+      label: "Gold detached / noisy",
+      tone: "mixed",
+      summary: "XAUUSD is not moving enough yet to identify whether dollar, yields, or haven flow is in control.",
+    };
+  }
+
+  const supportiveDollarYield =
+    (goldMove === "up" && (dxyMove === "down" || us10yMove === "down")) ||
+    (goldMove === "down" && (dxyMove === "up" || us10yMove === "up"));
+
+  if (supportiveDollarYield) {
+    return {
+      label: "Gold following dollar/yields",
+      tone: goldMove === "up" ? "bullish" : "bearish",
+      summary:
+        goldMove === "up"
+          ? "XAUUSD is rising while the dollar or yields are softer, so macro drivers are confirming the move."
+          : "XAUUSD is falling while the dollar or yields are firmer, so macro drivers are pressuring gold.",
+    };
+  }
+
+  if (goldMove === "up" && (dxyMove === "up" || us10yMove === "up")) {
+    return {
+      label: "Gold following safe-haven flow",
+      tone: "bullish",
+      summary: "XAUUSD is rising despite firmer dollar or yields, which points to haven demand or gold-specific buying.",
+    };
+  }
+
+  if (goldMove === "down" && (dxyMove === "down" || us10yMove === "down")) {
+    return {
+      label: "Gold detached / noisy",
+      tone: "bearish",
+      summary: "XAUUSD is falling even though dollar or yields are softer, so liquidation or position flow may be dominating.",
+    };
+  }
+
+  return {
+    label: "Gold-specific flow",
+    tone: goldMove === "up" ? "bullish" : "bearish",
+    summary: "XAUUSD is moving without clean confirmation from dollar or yields. Treat news confirmation as more important.",
   };
 }
 
@@ -2977,14 +3504,18 @@ async function getMarketReaction(watchlist) {
     )
     .filter(Boolean);
 
+  const visibleItems = items.filter((item) => item.visible !== false);
   const reaction = interpretXauusdReaction(items);
+  const session = goldMarketSessionMeta();
   const payload = {
     generatedAt: new Date().toISOString(),
     watchlistId: watchlist?.id || "xauusd",
     watchlistLabel: watchlist?.label || "XAUUSD",
-    sourceLabel: "Stooq XAUUSD quote",
+    sourceLabel: "Live XAUUSD quote",
+    marketSession: session,
     reaction,
-    items,
+    marketRegime: buildMarketRegime(items),
+    items: visibleItems,
     errors,
   };
 
@@ -3250,16 +3781,20 @@ function matchesTradingUsefulness(item, tradingMode) {
   const categories = item.categories || [];
   const symbols = item.symbols || [];
   const score = Number(item.score || 0);
+  const hasGlobalMarketRisk = categories.some((category) =>
+    ["Global Shock", "Global Central Banks", "Geopolitics"].includes(category)
+  );
   const isMarketMoving = Boolean(
     item.eventDriven ||
       item.urgency === "immediate" ||
       item.impact === "high" ||
+      hasGlobalMarketRisk ||
       Number(item.combinedCount || 1) > 1 ||
       (score >= 10 && Number(item.confidence || 0) >= 58)
   );
 
   if (mode === "market-moving") {
-    return Boolean(sourceScore >= 1.2 && hasAssetLink && item.urgency !== "background" && isMarketMoving);
+    return Boolean(sourceScore >= 1.2 && (hasAssetLink || hasGlobalMarketRisk) && item.urgency !== "background" && isMarketMoving);
   }
 
   if (mode === "catalyst") {
@@ -3325,12 +3860,12 @@ function matchesTradingUsefulness(item, tradingMode) {
   }
 
   if (mode === "support") {
-    return Boolean(sourceScore >= 0.9 && hasAssetLink && hasDecisionSignal);
+    return Boolean(sourceScore >= 0.9 && (hasAssetLink || hasGlobalMarketRisk) && hasDecisionSignal);
   }
 
   return Boolean(
     sourceScore >= 1.2 &&
-      hasAssetLink &&
+      (hasAssetLink || hasGlobalMarketRisk) &&
       item.urgency !== "background" &&
       (item.eventDriven || item.impact !== "low" || Number(item.confidence || 0) >= 58 || Number(item.combinedCount || 1) > 1)
   );
@@ -3359,9 +3894,34 @@ function buildTradingWhyItMatters(item, context = {}) {
   return qualifiers.length ? `${baseReason} Signal quality: ${qualifiers.join(", ")}.` : baseReason;
 }
 
+function createDeskHeadline(title, sourceFeed) {
+  const cleanTitle = cleanHeadlineForSummary(title);
+  const feed = String(sourceFeed || "").toLowerCase();
+  const text = cleanTitle.toLowerCase();
+
+  if (!feed.includes("trump / x")) {
+    return cleanTitle;
+  }
+
+  if (/\btariff|china|trade war|import duty/.test(text)) {
+    return `Trump tariff risk: ${cleanTitle}`;
+  }
+
+  if (/\bfed|powell|rate|dollar|treasury|yield|inflation/.test(text)) {
+    return `Trump macro risk: ${cleanTitle}`;
+  }
+
+  if (/\boil|iran|sanction|war|middle east|israel/.test(text)) {
+    return `Trump geopolitical risk: ${cleanTitle}`;
+  }
+
+  return `Trump statement risk: ${cleanTitle}`;
+}
+
 function analyzeItem(rawItem, watchlist) {
   const split = splitSourceFromTitle(rawItem.title, rawItem.sourceFeed);
-  const text = `${split.cleanTitle} ${rawItem.description}`.toLowerCase();
+  const deskTitle = createDeskHeadline(split.cleanTitle, rawItem.sourceFeed);
+  const text = `${deskTitle} ${rawItem.description}`.toLowerCase();
   const matchedFocus = watchlist.focusKeywords.filter((keyword) => text.includes(keyword));
   const categories = CATEGORY_RULES.filter((rule) => countMatches(text, rule.keywords) > 0).map((rule) => rule.label);
   const actualSymbols = uniq(SYMBOL_RULES.filter((rule) => countMatches(text, rule.keywords) > 0).flatMap((rule) => rule.symbols));
@@ -3402,8 +3962,8 @@ function analyzeItem(rawItem, watchlist) {
   const urgency = formatUrgency(urgentHits + (impact === "high" ? 1 : 0));
   const bias = inferBias(text);
   const analyzedItem = {
-    key: normalizeKey(split.cleanTitle, rawItem.link),
-    title: split.cleanTitle,
+    key: normalizeKey(deskTitle, rawItem.link),
+    title: deskTitle,
     link: rawItem.link,
     sourceName: split.sourceName || rawItem.sourceFeed,
     sourceFeed: rawItem.sourceFeed,
@@ -3433,6 +3993,347 @@ function analyzeItem(rawItem, watchlist) {
   };
 }
 
+function articleLogPath(watchlistId) {
+  const safeId = String(watchlistId || "watchlist").replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
+  return path.join(ARTICLE_LOG_DIR, `${safeId}-articles.json`);
+}
+
+function estimateLogPath(watchlistId) {
+  const safeId = String(watchlistId || "watchlist").replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
+  return path.join(ARTICLE_LOG_DIR, `${safeId}-estimates.json`);
+}
+
+function readEstimateLog(watchlistId) {
+  try {
+    const filePath = estimateLogPath(watchlistId);
+    if (!fs.existsSync(filePath)) {
+      return [];
+    }
+
+    const payload = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return Array.isArray(payload.entries) ? payload.entries.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeEstimateLog(watchlistId, entries) {
+  fs.mkdirSync(ARTICLE_LOG_DIR, { recursive: true });
+  const filePath = estimateLogPath(watchlistId);
+  const tempPath = `${filePath}.tmp`;
+  const payload = {
+    version: 1,
+    watchlistId: watchlistId || "xauusd",
+    savedAt: new Date().toISOString(),
+    entryCount: entries.length,
+    entries,
+  };
+  fs.writeFileSync(tempPath, JSON.stringify(payload, null, 2), "utf8");
+  fs.renameSync(tempPath, filePath);
+}
+
+const ESTIMATE_INTERVAL_MINUTES = 30;
+
+function estimatePeriodStart(date = new Date()) {
+  const value = new Date(date);
+  const minutes = value.getUTCMinutes();
+  value.setUTCMinutes(minutes < 30 ? 0 : 30, 0, 0);
+  return value;
+}
+
+function addMinutes(date, minutes) {
+  return new Date(date.getTime() + minutes * 60_000);
+}
+
+function isGoldMarketOpen(now = new Date()) {
+  const parts = zonedParts(now, NEW_YORK_TIME_ZONE);
+  const day = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0)).getUTCDay();
+  const minutes = parts.hour * 60 + parts.minute;
+
+  if (day === 6) {
+    return false;
+  }
+
+  if (day === 5 && minutes >= 17 * 60) {
+    return false;
+  }
+
+  if (day === 0 && minutes < 18 * 60) {
+    return false;
+  }
+
+  return !(minutes >= 17 * 60 && minutes < 18 * 60);
+}
+
+function goldMarketSessionMeta(now = new Date()) {
+  return {
+    open: isGoldMarketOpen(now),
+    label: isGoldMarketOpen(now) ? "Gold market open" : "Gold market closed",
+    summary: isGoldMarketOpen(now)
+      ? "Gold is in an active trading session."
+      : "Gold is in the weekend or daily closed session, so live interpretation should be treated as stale context only.",
+  };
+}
+
+function pickProjectionNewsItem(items) {
+  const list = Array.isArray(items) ? items : [];
+  const relevant = list.filter((item) => {
+    const categories = Array.isArray(item?.categories) ? item.categories : [];
+    const symbols = Array.isArray(item?.symbols) ? item.symbols : [];
+    const keywords = Array.isArray(item?.matchedKeywords) ? item.matchedKeywords : [];
+    const hasGoldMacroSymbol = symbols.some((symbol) => ["XAUUSD", "DXY", "US10Y"].includes(symbol));
+    const hasGoldMacroCategory = categories.some((category) =>
+      ["Macro", "Rates", "Geopolitics", "Political Risk", "Global Shock", "Global Central Banks"].includes(category)
+    );
+    const hasGoldKeyword = keywords.some((keyword) =>
+      /gold|bullion|xauusd|dollar|yield|treasury|fed|fomc|inflation|cpi|pce|tariff|risk off|safe haven/i.test(keyword)
+    );
+    return hasGoldMacroSymbol || hasGoldMacroCategory || hasGoldKeyword;
+  });
+  const candidates = relevant.length ? relevant : list;
+  return (
+    candidates.find((item) => item?.tradingAction === "trade_now" || item?.urgency === "immediate") ||
+    candidates.find((item) => item?.impact === "high") ||
+    candidates[0] ||
+    null
+  );
+}
+
+function estimateFeedback(entries) {
+  const completed = (Array.isArray(entries) ? entries : [])
+    .filter((entry) => entry?.actualAt && Number.isFinite(Number(entry.error)))
+    .slice(-6);
+  if (!completed.length) {
+    return {
+      missBias: 0,
+      averageAbsoluteError: 0,
+      preferFlat: false,
+      dampening: 1,
+    };
+  }
+
+  const averageAbsoluteError =
+    completed.reduce((total, entry) => total + Math.abs(Number(entry.error) || 0), 0) / completed.length;
+  const largeMisses = completed.filter((entry) => Math.abs(Number(entry.error) || 0) >= 12).length;
+  const missBias =
+    completed.reduce((total, entry) => {
+      const direction = entry.direction === "up" ? 1 : entry.direction === "down" ? -1 : 0;
+      const error = Number(entry.error) || 0;
+      return total + direction * error;
+    }, 0) / completed.length;
+
+  return {
+    missBias: Number(missBias.toFixed(2)),
+    averageAbsoluteError: Number(averageAbsoluteError.toFixed(2)),
+    preferFlat: largeMisses >= 3,
+    dampening: largeMisses >= 4 ? 0.55 : largeMisses >= 2 ? 0.72 : 0.88,
+  };
+}
+
+function roundToNearestFive(value) {
+  return Math.round(Number(value || 0) / 5) * 5;
+}
+
+function buildGoldProjection(marketPayload, newsItems, volatility = null, feedback = null) {
+  const marketItem = Array.isArray(marketPayload?.items) ? marketPayload.items[0] : null;
+  const price = Number(marketItem?.price);
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const bestItem = pickProjectionNewsItem(newsItems);
+  const regimeTone = marketPayload?.marketRegime?.tone || "mixed";
+  const move = marketItem.move || "flat";
+  const bias = bestItem?.bias || "mixed";
+  const votes = [
+    move === "up" ? 1 : move === "down" ? -1 : 0,
+    regimeTone === "bullish" ? 1 : regimeTone === "bearish" ? -1 : 0,
+    bias === "bullish" ? 1 : bias === "bearish" ? -1 : 0,
+  ];
+  const voteScore = votes.reduce((total, vote) => total + vote, 0);
+  const directionValue = voteScore >= 2 ? 1 : voteScore <= -2 ? -1 : 0;
+  const dayMove = Math.abs(Number(marketItem.dayChangePercent) || 0);
+  const score = Number(bestItem?.score || 0);
+  const confidenceRaw = Number(bestItem?.confidence || 45);
+  const signalStrength = score >= 18 && confidenceRaw >= 70 ? 1.2 : score >= 12 && confidenceRaw >= 58 ? 1.05 : 0.85;
+  const support = Number(volatility?.support) > 0 ? Number(volatility.support) : Number.NaN;
+  const resistance = Number(volatility?.resistance) > 0 ? Number(volatility.resistance) : Number.NaN;
+  const move30 = Number(volatility?.move30 || 0);
+  const rangePosition = Number(volatility?.rangePosition || 0.5);
+  const stretchedUp = Boolean(volatility?.stretchedUp);
+  const stretchedDown = Boolean(volatility?.stretchedDown);
+  const feedbackModel = feedback || { missBias: 0, averageAbsoluteError: 0, preferFlat: false, dampening: 1 };
+  let adjustedDirection = directionValue;
+
+  if ((adjustedDirection > 0 && stretchedUp) || (adjustedDirection < 0 && stretchedDown)) {
+    adjustedDirection = 0;
+  }
+
+  if (
+    feedbackModel.preferFlat &&
+    Math.abs(move30) >= Math.max(6, Number(volatility?.averageFiveMinuteMove || 0) * 2) &&
+    Math.abs(voteScore) < 3
+  ) {
+    adjustedDirection = 0;
+  }
+
+  if (adjustedDirection > 0 && rangePosition >= 0.78 && Math.abs(move30) >= 8) {
+    adjustedDirection = 0;
+  }
+
+  if (adjustedDirection < 0 && rangePosition <= 0.22 && Math.abs(move30) >= 8) {
+    adjustedDirection = 0;
+  }
+
+  const direction = adjustedDirection > 0 ? "up" : adjustedDirection < 0 ? "down" : "flat";
+  const suggestedDistance =
+    adjustedDirection === 0 ? 0 : price * (clamp(dayMove * 0.18 + 0.08 * signalStrength, 0.08, 0.32) / 100);
+  const volatilityCap = Number(volatility?.cap);
+  const maxDistance = Number.isFinite(volatilityCap) ? volatilityCap : 12;
+  const minDistance = adjustedDirection === 0 ? 0 : 5;
+  const targetDistance = clamp(suggestedDistance * feedbackModel.dampening, minDistance, maxDistance);
+  let targetRaw = adjustedDirection === 0 ? price : price + adjustedDirection * targetDistance;
+
+  if (adjustedDirection > 0 && Number.isFinite(resistance)) {
+    targetRaw = Math.min(targetRaw, resistance - 2);
+  }
+
+  if (adjustedDirection < 0 && Number.isFinite(support)) {
+    targetRaw = Math.max(targetRaw, support + 2);
+  }
+
+  if (adjustedDirection === 0) {
+    targetRaw = price + (feedbackModel.missBias > 8 ? -2 : feedbackModel.missBias < -8 ? 2 : 0);
+  }
+
+  const target = roundToNearestFive(targetRaw);
+  const low = target - 5;
+  const high = target + 5;
+  const agreement = Math.abs(voteScore);
+  const confidence =
+    bestItem && adjustedDirection !== 0
+      ? clamp(
+          Math.round(confidenceRaw * 0.58 + agreement * 8 + Math.min(10, dayMove * 2) - feedbackModel.averageAbsoluteError * 0.35),
+          38,
+          84
+        )
+      : clamp(35 - Math.round(feedbackModel.averageAbsoluteError * 0.2), 24, 40);
+
+  return {
+    basePrice: Number(price.toFixed(2)),
+    direction,
+    target,
+    low,
+    high,
+    confidence,
+    reason: `${agreement}/3 signals agreed: price ${move}, regime ${regimeTone}, news ${bias}`,
+    signal: {
+      priceMove: move,
+      regimeTone,
+      newsBias: bias,
+      newsTitle: bestItem?.title || "",
+      newsSource: bestItem?.sourceName || "",
+      targetDistance: Number(targetDistance.toFixed(2)),
+      volatilityCap: Number(maxDistance.toFixed(2)),
+      thirtyMinuteRange: Number(volatility?.thirtyMinuteRange || 0),
+      support: Number.isFinite(support) ? Number(support.toFixed(2)) : null,
+      resistance: Number.isFinite(resistance) ? Number(resistance.toFixed(2)) : null,
+      move30: Number(move30.toFixed(2)),
+      rangePosition: Number(rangePosition.toFixed(2)),
+      stretchedUp,
+      stretchedDown,
+      missBias: feedbackModel.missBias,
+      missAverage: feedbackModel.averageAbsoluteError,
+      preferFlat: feedbackModel.preferFlat,
+    },
+  };
+}
+
+function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility = null) {
+  const marketItem = Array.isArray(marketPayload?.items) ? marketPayload.items[0] : null;
+  const actualPrice = Number(marketItem?.price);
+  if (!Number.isFinite(actualPrice) || actualPrice <= 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const marketOpen = isGoldMarketOpen(now);
+  const currentPeriod = estimatePeriodStart(now);
+  const currentPeriodKey = currentPeriod.toISOString();
+  const entries = readEstimateLog(watchlistId);
+  const feedback = estimateFeedback(entries);
+  let changed = false;
+
+  entries.forEach((entry) => {
+    if (entry?.actualAt || !entry?.targetHourKey) {
+      return;
+    }
+
+    const targetTime = Date.parse(entry.targetHourKey);
+    if (!Number.isFinite(targetTime) || now.getTime() < targetTime) {
+      return;
+    }
+
+    const error = Number((actualPrice - Number(entry.target)).toFixed(2));
+    const directionHit =
+      entry.direction === "flat"
+        ? actualPrice >= Number(entry.low) && actualPrice <= Number(entry.high)
+        : entry.direction === "up"
+          ? actualPrice > Number(entry.basePrice)
+          : actualPrice < Number(entry.basePrice);
+
+    entry.actualAt = now.toISOString();
+    entry.actualPrice = Number(actualPrice.toFixed(2));
+    entry.error = error;
+    entry.absoluteError = Math.abs(error);
+    entry.directionHit = directionHit;
+    entry.zoneHit = actualPrice >= Number(entry.low) && actualPrice <= Number(entry.high);
+    changed = true;
+  });
+
+  if (
+    marketOpen &&
+    !entries.some((entry) => entry?.hourKey === currentPeriodKey && Number(entry.intervalMinutes || 60) === ESTIMATE_INTERVAL_MINUTES)
+  ) {
+    const projection = buildGoldProjection(marketPayload, newsItems, volatility, feedback);
+    if (projection) {
+      entries.push({
+        hourKey: currentPeriodKey,
+        intervalMinutes: ESTIMATE_INTERVAL_MINUTES,
+        targetHourKey: addMinutes(currentPeriod, ESTIMATE_INTERVAL_MINUTES).toISOString(),
+        createdAt: now.toISOString(),
+        ...projection,
+        actualAt: "",
+        actualPrice: null,
+        error: null,
+        absoluteError: null,
+        directionHit: null,
+        zoneHit: null,
+      });
+      changed = true;
+    }
+  }
+
+  const trimmedEntries = entries
+    .filter((entry) => entry && entry.hourKey)
+    .sort((left, right) => Date.parse(left.hourKey) - Date.parse(right.hourKey))
+    .slice(-240);
+
+  if (changed || trimmedEntries.length !== entries.length) {
+    writeEstimateLog(watchlistId, trimmedEntries);
+  }
+
+  if (!marketOpen) {
+    return {
+      marketClosed: true,
+      marketOpen: false,
+      reason: "Gold market is closed. No new XAUUSD estimate is being locked right now.",
+    };
+  }
+
+  return trimmedEntries[trimmedEntries.length - 1] || null;
+}
+
 class NewsMonitor {
   constructor(watchlist, options = {}) {
     this.watchlist = watchlist;
@@ -3446,6 +4347,8 @@ class NewsMonitor {
     this.feedErrors = [];
     this.inFlight = null;
     this.intervalHandle = null;
+    this.cacheWriteTimer = null;
+    this.loadArticleLog();
   }
 
   start() {
@@ -3460,6 +4363,58 @@ class NewsMonitor {
     if (!this.intervalHandle) return;
     clearInterval(this.intervalHandle);
     this.intervalHandle = null;
+    this.saveArticleLogNow();
+  }
+
+  loadArticleLog() {
+    try {
+      const filePath = articleLogPath(this.watchlist.id);
+      if (!fs.existsSync(filePath)) {
+        return;
+      }
+
+      const payload = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      this.items = items
+        .filter((item) => item && item.key && item.title && item.link)
+        .slice(0, MAX_ITEMS);
+      this.seenKeys = new Set(this.items.map((item) => item.key));
+      this.lastSuccessfulPollAt = payload.lastSuccessfulPollAt || null;
+      this.pruneExpiredItems();
+    } catch (error) {
+      this.lastError = `Article log read failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  scheduleArticleLogSave() {
+    if (this.cacheWriteTimer) {
+      clearTimeout(this.cacheWriteTimer);
+    }
+
+    this.cacheWriteTimer = setTimeout(() => {
+      this.cacheWriteTimer = null;
+      this.saveArticleLogNow();
+    }, 500);
+  }
+
+  saveArticleLogNow() {
+    try {
+      fs.mkdirSync(ARTICLE_LOG_DIR, { recursive: true });
+      const filePath = articleLogPath(this.watchlist.id);
+      const tempPath = `${filePath}.tmp`;
+      const payload = {
+        version: 1,
+        watchlistId: this.watchlist.id,
+        savedAt: new Date().toISOString(),
+        lastSuccessfulPollAt: this.lastSuccessfulPollAt,
+        itemCount: this.items.length,
+        items: this.items.slice(0, MAX_ITEMS),
+      };
+      fs.writeFileSync(tempPath, JSON.stringify(payload, null, 2), "utf8");
+      fs.renameSync(tempPath, filePath);
+    } catch (error) {
+      this.lastError = `Article log write failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   pruneExpiredItems(now = Date.now()) {
@@ -3475,6 +4430,7 @@ class NewsMonitor {
     this.items = retainedItems;
     this.seenKeys = new Set(this.items.map((item) => item.key));
     this.detailCache = new Map();
+    this.scheduleArticleLogSave();
   }
 
   async refresh() {
@@ -3555,6 +4511,7 @@ class NewsMonitor {
         this.lastSuccessfulPollAt = new Date().toISOString();
         this.lastError = "";
         this.feedErrors = feedErrors;
+        this.scheduleArticleLogSave();
       })
       .catch((error) => {
         this.lastError = error instanceof Error ? error.message : String(error);
@@ -3697,14 +4654,51 @@ class NewsService {
     this.monitors = new Map(
       [WATCHLISTS.xauusd].map((watchlist) => [watchlist.id, new NewsMonitor(watchlist, options)])
     );
+    this.estimateIntervalHandle = null;
+    this.estimateInFlight = false;
   }
 
   start() {
     this.monitors.forEach((monitor) => monitor.start());
+    this.startEstimateAudit();
   }
 
   stop() {
+    this.stopEstimateAudit();
     this.monitors.forEach((monitor) => monitor.stop());
+  }
+
+  startEstimateAudit() {
+    if (this.estimateIntervalHandle) {
+      return;
+    }
+
+    this.runEstimateAudit().catch(() => {});
+    this.estimateIntervalHandle = setInterval(() => {
+      this.runEstimateAudit().catch(() => {});
+    }, 60_000);
+  }
+
+  stopEstimateAudit() {
+    if (!this.estimateIntervalHandle) {
+      return;
+    }
+
+    clearInterval(this.estimateIntervalHandle);
+    this.estimateIntervalHandle = null;
+  }
+
+  async runEstimateAudit() {
+    if (this.estimateInFlight) {
+      return;
+    }
+
+    this.estimateInFlight = true;
+    try {
+      await this.getMarketReaction("xauusd");
+    } finally {
+      this.estimateInFlight = false;
+    }
   }
 
   getWatchlists() {
@@ -3743,7 +4737,120 @@ class NewsService {
 
   async getMarketReaction(id) {
     const monitor = this.getMonitor(id);
-    return getMarketReaction(monitor.watchlist);
+    const reaction = await getMarketReaction(monitor.watchlist);
+    let volatility = null;
+    try {
+      volatility = await fetchGoldRecentVolatility();
+    } catch {
+      volatility = null;
+    }
+    const recentItems = monitor.getItems({
+      limit: MAX_ITEMS,
+      minScore: 0,
+      maxAgeHours: 3,
+      signalMode: "broad",
+      sourceMode: "all",
+      tradingMode: "all",
+    });
+    const estimateAudit = updateGoldEstimateLog(monitor.watchlist.id, reaction, recentItems, volatility);
+    return {
+      ...reaction,
+      estimateAudit,
+    };
+  }
+
+  getEstimateLog(id, options = {}) {
+    const monitor = this.getMonitor(id);
+    const limit = clamp(Number(options.limit) || 100, 1, 240);
+    const entries = readEstimateLog(monitor.watchlist.id).slice(-limit).reverse();
+    return {
+      generatedAt: new Date().toISOString(),
+      watchlistId: monitor.watchlist.id,
+      entries,
+    };
+  }
+
+  async getGoldHour(id) {
+    const monitor = this.getMonitor(id);
+    const session = goldMarketSessionMeta();
+    if (!session.open) {
+      return {
+        generatedAt: new Date().toISOString(),
+        sourceLabel: "Weekend / closed-session guard",
+        watchlistId: monitor.watchlist.id,
+        marketClosed: true,
+        marketSession: session,
+        move: null,
+        reason: {
+          driver: "CLOSED",
+          title: "Gold market closed",
+          summary: session.summary,
+        },
+      };
+    }
+
+    const move = await fetchGoldPastHourMove();
+    const relatedItems = monitor.getItems({
+      limit: MAX_ITEMS,
+      minScore: 0,
+      maxAgeHours: 3,
+      signalMode: "broad",
+      sourceMode: "all",
+      tradingMode: "all",
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      sourceLabel: "Yahoo Gold futures 5m chart + filtered news",
+      watchlistId: monitor.watchlist.id,
+      marketClosed: false,
+      marketSession: session,
+      move,
+      reason: pickGoldHourReason(relatedItems, move.direction),
+    };
+  }
+
+  async getGoldSummary(id, options = {}) {
+    const monitor = this.getMonitor(id);
+    const hours = clamp(Number(options.hours) || 4, 2, 8);
+    const session = goldMarketSessionMeta();
+    const relatedItems = monitor.getItems({
+      limit: MAX_ITEMS,
+      minScore: 0,
+      maxAgeHours: hours + 1,
+      signalMode: "broad",
+      sourceMode: "all",
+      tradingMode: "all",
+    });
+    let move = null;
+    try {
+      move = await fetchGoldPastHoursMove(hours);
+      if (!move) {
+        const hourMove = await fetchGoldPastHourMove();
+        move = {
+          hours,
+          baselinePrice: Number(hourMove.baselinePrice || 0),
+          latestPrice: Number(hourMove.latestPrice || 0),
+          baselineAt: hourMove.baselineAt,
+          updatedAt: hourMove.updatedAt,
+          change: Number(hourMove.change || 0),
+          changePercent: Number(hourMove.changePercent || 0),
+          direction: hourMove.direction || "flat",
+        };
+      }
+    } catch {
+      move = null;
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      watchlistId: monitor.watchlist.id,
+      hours,
+      marketClosed: !session.open,
+      marketSession: session,
+      sourceLabel: "Yahoo Gold futures 5m chart + filtered recent news",
+      summary: move ? buildGoldMultiHourSummary(relatedItems, move) : buildGoldNewsOnlySummary(relatedItems, hours),
+    };
   }
 
   async getHeadlineReaction(id, key) {

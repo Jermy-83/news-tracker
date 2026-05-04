@@ -3,11 +3,11 @@ const net = require("net");
 const { app, BrowserWindow, shell, dialog } = require("electron");
 const { createAppServer } = require("../server");
 
-const SERVER_PORT = Number(process.env.PORT || 3180);
-const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}/`;
+const DEFAULT_SERVER_PORT = Number(process.env.PORT || 3190);
 
 let mainWindow = null;
 let embeddedServer = null;
+let serverUrl = "";
 
 function checkPortOpen(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
@@ -32,12 +32,14 @@ function checkPortOpen(port, host = "127.0.0.1") {
 }
 
 async function ensureServerRunning() {
-  if (await checkPortOpen(SERVER_PORT)) {
-    return;
+  let port = DEFAULT_SERVER_PORT;
+  while (await checkPortOpen(port)) {
+    port += 1;
   }
 
-  embeddedServer = createAppServer({ port: SERVER_PORT });
+  embeddedServer = createAppServer({ port });
   await embeddedServer.start();
+  serverUrl = `http://127.0.0.1:${port}/`;
 }
 
 function createMainWindow() {
@@ -66,7 +68,7 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (!url.startsWith(SERVER_URL)) {
+    if (!url.startsWith(serverUrl)) {
       event.preventDefault();
       shell.openExternal(url).catch(() => {});
     }
@@ -76,7 +78,9 @@ function createMainWindow() {
     mainWindow = null;
   });
 
-  mainWindow.loadURL(SERVER_URL);
+  mainWindow.webContents.session.clearCache().finally(() => {
+    mainWindow.loadURL(`${serverUrl}?v=${Date.now()}`);
+  });
 }
 
 async function launchApp() {

@@ -2,5 +2,7 @@ node_modules/
 dist/
 server.out.log
 server.err.log
+article-log/
+tmp/
 .DS_Store
 Thumbs.db

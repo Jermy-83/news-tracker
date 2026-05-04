@@ -81,6 +81,46 @@ function createAppServer({ port = Number(process.env.PORT || 3180) } = {}) {
       return;
     }
 
+    if (requestUrl.pathname === "/api/market/gold-hour") {
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
+      newsService
+        .getGoldHour(watchlist)
+        .then((goldHour) => {
+          sendJson(res, 200, { goldHour });
+        })
+        .catch((error) => {
+          sendJson(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/market/estimates") {
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
+      const limit = requestUrl.searchParams.get("limit") || "100";
+      sendJson(res, 200, { estimates: newsService.getEstimateLog(watchlist, { limit }) });
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/market/gold-summary") {
+      const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
+      const hours = requestUrl.searchParams.get("hours") || "4";
+      newsService
+        .getGoldSummary(watchlist, { hours })
+        .then((goldSummary) => {
+          sendJson(res, 200, { goldSummary });
+        })
+        .catch((error) => {
+          sendJson(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return;
+    }
+
     if (requestUrl.pathname === "/api/news/reaction") {
       const watchlist = requestUrl.searchParams.get("watchlist") || "xauusd";
       const key = requestUrl.searchParams.get("key") || "";

@@ -6,6 +6,9 @@
   const timelinessSelect = document.getElementById("newsTimelinessSelect");
   const newsTypeSelect = document.getElementById("newsTypeSelect");
   const sortSelect = document.getElementById("newsSortSelect");
+  const notificationSoundBtn = document.getElementById("notificationSoundBtn");
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  const themeToggleLabel = document.getElementById("themeToggleLabel");
   const refreshBtn = document.getElementById("newsRefreshBtn");
   const statusPill = document.getElementById("newsStatusPill");
   const deskTitle = document.getElementById("newsDeskTitle");
@@ -22,6 +25,9 @@
   const errorBox = document.getElementById("newsErrorBox");
   const listRoot = document.getElementById("newsList");
   const emptyState = document.getElementById("newsEmptyState");
+  const tradeChecklist = document.getElementById("tradeChecklist");
+  const goldProjectionBox = document.getElementById("goldProjectionBox");
+  const goldProjectionResult = document.getElementById("goldProjectionResult");
   const detailTitle = document.getElementById("newsDetailTitle");
   const detailMeta = document.getElementById("newsDetailMeta");
   const detailSummary = document.getElementById("newsDetailSummary");
@@ -35,17 +41,68 @@
   const bearishProb = document.getElementById("newsBearishProb");
   const marketReactionSummary = document.getElementById("marketReactionSummary");
   const marketReactionBias = document.getElementById("marketReactionBias");
+  const marketRegime = document.getElementById("marketRegime");
   const marketReactionGrid = document.getElementById("marketReactionGrid");
+  const marketSessionBadge = document.getElementById("marketSessionBadge");
+  const marketStateStrip = document.getElementById("marketStateStrip");
+  const marketMoveReason = document.getElementById("marketMoveReason");
   const catalystWindowLabel = document.getElementById("newsCatalystWindowLabel");
   const catalystSummary = document.getElementById("newsCatalystSummary");
   const catalystList = document.getElementById("newsCatalystList");
+  const goldHourPanel = document.getElementById("goldHourPanel");
+  const goldHourSummaryBtn = document.getElementById("goldHourSummaryBtn");
+  const goldSummaryModal = document.getElementById("goldSummaryModal");
+  const goldSummaryBackdrop = document.getElementById("goldSummaryBackdrop");
+  const goldSummaryCloseBtn = document.getElementById("goldSummaryCloseBtn");
+  const goldSummaryPanel = document.getElementById("goldSummaryPanel");
   const CLIENT_POLL_BUFFER_MS = 2_500;
   const CLIENT_RETRY_MS = 15_000;
   const CLIENT_MIN_DELAY_MS = 10_000;
   const CLIENT_MAX_DELAY_MS = 180_000;
   const MARKET_REACTION_POLL_MS = 5_000;
-
+  const THEME_STORAGE_KEY = "news-tracker-theme";
   if (!watchlistSelect || !listRoot || !sortSelect || !timelinessSelect || !newsTypeSelect) return;
+
+  function getPreferredTheme() {
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "dark" || saved === "light") {
+      return saved;
+    }
+    return "dark";
+  }
+
+  function setThemeState(theme) {
+    const nextTheme = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    document.body.setAttribute("data-theme", nextTheme);
+    if (themeToggleBtn) {
+      themeToggleBtn.setAttribute("aria-label", nextTheme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+      themeToggleBtn.dataset.theme = nextTheme;
+    }
+    if (themeToggleLabel) {
+      themeToggleLabel.textContent = nextTheme === "dark" ? "Dark mode" : "Light mode";
+    }
+  }
+
+  function applyTheme(theme, options = {}) {
+    const nextTheme = theme === "light" ? "light" : "dark";
+    setThemeState(nextTheme);
+  }
+
+  function initializeTheme() {
+    applyTheme(getPreferredTheme(), { animate: false });
+    if (!themeToggleBtn) {
+      return;
+    }
+    themeToggleBtn.addEventListener("click", () => {
+      const currentTheme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      applyTheme(nextTheme);
+    });
+  }
+
+  initializeTheme();
 
   function newsTypeModes(newsType) {
     if (newsType === "catalyst") {
@@ -123,13 +180,22 @@
     sourceMode: initialModes.sourceMode,
     tradingMode: initialModes.tradingMode,
     status: null,
+    clientError: "",
     items: [],
     catalysts: null,
+    goldHour: null,
+    goldSummary: null,
+    goldSummaryOpen: false,
+    estimateLog: null,
     marketReaction: null,
     selectedKey: "",
     detailCache: {},
     readFreshKeys: loadReadFreshKeys(),
     dismissedKeys: loadDismissedKeys(),
+    tradeNowNotifiedKeys: loadTradeNowNotifiedKeys(),
+    soundEnabled: loadSoundEnabled(),
+    soundContext: null,
+    hasLoadedNewsOnce: false,
     listMode: "visible",
     sortMode: sortSelect.value || "latest",
     timerHandle: null,
@@ -169,7 +235,100 @@
     } catch {}
   }
 
+  function loadTradeNowNotifiedKeys() {
+    try {
+      const raw = window.localStorage.getItem("newstracker-trade-now-notified");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function persistTradeNowNotifiedKeys() {
+    try {
+      window.localStorage.setItem("newstracker-trade-now-notified", JSON.stringify(state.tradeNowNotifiedKeys));
+    } catch {}
+  }
+
+  function loadSoundEnabled() {
+    try {
+      return window.localStorage.getItem("newstracker-soft-sound-enabled") !== "false";
+    } catch {
+      return true;
+    }
+  }
+
+  function persistSoundEnabled() {
+    try {
+      window.localStorage.setItem("newstracker-soft-sound-enabled", String(state.soundEnabled));
+    } catch {}
+  }
+
+  function renderSoundToggle() {
+    if (!notificationSoundBtn) {
+      return;
+    }
+
+    notificationSoundBtn.textContent = state.soundEnabled ? "Sound on" : "Sound muted";
+    notificationSoundBtn.classList.toggle("isMuted", !state.soundEnabled);
+    notificationSoundBtn.setAttribute("aria-pressed", String(state.soundEnabled));
+  }
+
+  function getSoundContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      return null;
+    }
+
+    if (!state.soundContext) {
+      state.soundContext = new AudioContextClass();
+    }
+
+    return state.soundContext;
+  }
+
+  function playSoftTradeNowSound() {
+    if (!state.soundEnabled) {
+      return;
+    }
+
+    const context = getSoundContext();
+    if (!context) {
+      return;
+    }
+
+    const startSound = () => {
+      const now = context.currentTime;
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.045, now + 0.035);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+      gain.connect(context.destination);
+
+      [660, 880].forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, now + index * 0.09);
+        oscillator.connect(gain);
+        oscillator.start(now + index * 0.09);
+        oscillator.stop(now + 0.36 + index * 0.09);
+      });
+    };
+
+    if (context.state === "suspended") {
+      context.resume().then(startSound).catch(() => {});
+      return;
+    }
+
+    startSound();
+  }
+
   function clear(node) {
+    if (!node) {
+      return;
+    }
+
     while (node.firstChild) {
       node.removeChild(node.firstChild);
     }
@@ -179,10 +338,14 @@
     return Math.min(Math.max(value, min), max);
   }
 
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
   async function fetchJson(url) {
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(`Request failed with ${response.status}`);
+      throw new Error(`${url} failed with ${response.status}`);
     }
     return response.json();
   }
@@ -262,7 +425,7 @@
 
     if (status.lastError) {
       statusPill.classList.add("bearish");
-      statusPill.textContent = "Feed issue";
+      statusPill.textContent = status.lastError.includes(" is not defined") ? "App issue" : "Feed issue";
       return;
     }
 
@@ -294,6 +457,10 @@
   }
 
   function renderFeedList(status) {
+    if (!feedList) {
+      return;
+    }
+
     clear(feedList);
     (status.feeds || []).forEach((feed) => {
       const chip = document.createElement("span");
@@ -318,18 +485,26 @@
     const newsTypeLabel = newsTypeModes(state.newsType).label;
     const feedErrorCount = (status.feedErrors || []).length;
     const healthyFeedCount = Math.max(0, (status.feedCount || 0) - feedErrorCount);
-    feedSummary.textContent = `${healthyFeedCount}/${status.feedCount} feeds healthy, polling every ${Math.round(status.pollMs / 1000)}s. Showing ${state.maxAgeHours}h ${newsTypeLabel}. Keeping ${status.totalItems} tracked headlines in memory. Last successful check ${formatRelativeTime(status.lastSuccessfulPollAt)}.`;
+    feedSummary.textContent = `${healthyFeedCount}/${status.feedCount} feeds healthy | ${Math.round(status.pollMs / 1000)}s polling`;
     renderFeedList(status);
 
-    errorBox.hidden = !status.lastError && feedErrorCount === 0;
-    errorBox.textContent = status.lastError
-      ? `Feed fetch error: ${status.lastError}. The app is still running, but outbound network may be blocked.`
-      : feedErrorCount
+    errorBox.hidden = !status.lastError && feedErrorCount === 0 && !state.clientError;
+    if (status.lastError) {
+      const isAppIssue = status.lastError.includes(" is not defined");
+      errorBox.textContent = isAppIssue
+        ? `App issue: ${status.lastError}. The feeds may still be healthy.`
+        : `Feed fetch error: ${status.lastError}. The app is still running, but outbound network may be blocked.`;
+      return;
+    }
+
+    errorBox.textContent = feedErrorCount
         ? `Partial feed warning: ${status.feedErrors
             .slice(0, 4)
             .map((feedError) => feedError.label)
             .join(", ")} did not load. Other feeds are still active.`
-      : "";
+      : state.clientError
+        ? `Display warning: ${state.clientError}. Feeds may still be healthy.`
+        : "";
   }
 
   function renderCatalysts() {
@@ -366,6 +541,7 @@
       return;
     }
 
+    const marketItem = items[0];
     items.forEach((item) => {
       const card = document.createElement("article");
       card.className = `catalystItem ${item.impact || "medium"}`;
@@ -398,6 +574,15 @@
         item.sourceLabel || "Multi-source calendar"
       }`;
 
+      const quality = document.createElement("div");
+      quality.className = "catalystSourceQuality";
+      catalystSourceQuality(item.sources || []).forEach((tier) => {
+        const chip = document.createElement("span");
+        chip.className = `sourceQualityChip ${tier.className}`;
+        chip.textContent = tier.label;
+        quality.appendChild(chip);
+      });
+
       const values = document.createElement("div");
       values.className = "catalystValues";
       if (item.forecast) {
@@ -426,25 +611,29 @@
       const sources = document.createElement("div");
       sources.className = "catalystSources";
       (item.sources || []).slice(0, 4).forEach((source) => {
+        const kind = catalystSourceKind(source);
         if (!source.url) {
           const chip = document.createElement("span");
-          chip.className = "catalystSourceChip";
-          chip.textContent = source.label;
+          chip.className = `catalystSourceChip ${kind.className}`;
+          chip.textContent = `${kind.short}: ${source.label}`;
           sources.appendChild(chip);
           return;
         }
 
         const link = document.createElement("a");
-        link.className = "catalystSourceChip";
+        link.className = `catalystSourceChip ${kind.className}`;
         link.href = source.url;
         link.target = "_blank";
         link.rel = "noreferrer";
-        link.textContent = source.label;
+        link.textContent = `${kind.short}: ${source.label}`;
         sources.appendChild(link);
       });
 
       body.appendChild(header);
       body.appendChild(meta);
+      if (quality.childNodes.length) {
+        body.appendChild(quality);
+      }
       if (values.childNodes.length) {
         body.appendChild(values);
       }
@@ -489,6 +678,29 @@
     });
   }
 
+  function catalystSourceKind(source) {
+    const type = String(source?.type || "").toLowerCase();
+    if (type === "calendar") {
+      return { label: "Live calendar", short: "Live", className: "calendar" };
+    }
+    if (type === "official") {
+      return { label: "Official source", short: "Official", className: "official" };
+    }
+    if (type === "model") {
+      return { label: "Desk timing model", short: "Model", className: "model" };
+    }
+
+    return { label: "Source reference", short: "Source", className: "reference" };
+  }
+
+  function catalystSourceQuality(sources) {
+    const kinds = sources.map(catalystSourceKind);
+    const order = ["calendar", "official", "model", "reference"];
+    return order
+      .map((className) => kinds.find((kind) => kind.className === className))
+      .filter(Boolean);
+  }
+
   function renderMarketReaction() {
     if (!marketReactionSummary || !marketReactionBias || !marketReactionGrid) {
       return;
@@ -497,27 +709,31 @@
     const payload = state.marketReaction || {};
     const reaction = payload.reaction || {};
     const items = Array.isArray(payload.items) ? payload.items : [];
+    const marketClosed = payload.marketSession && payload.marketSession.open === false;
+    const marketItem =
+      items.find((item) => item.id === "xauusd" || item.id === "gold") ||
+      items.find((item) => item.role === "live quote") ||
+      items[0];
 
     clear(marketReactionGrid);
-    marketReactionSummary.textContent = items.length
-      ? `${payload.sourceLabel || "Market data"} | ${formatRelativeTime(payload.generatedAt)}`
-      : "Waiting for live market data...";
-    marketReactionBias.className = `marketReactionBias ${reaction.bias || "mixed"}`;
+    marketReactionSummary.textContent = marketClosed
+      ? "Weekend / closed session"
+      : items.length
+        ? `Updated ${formatRelativeTime(payload.generatedAt)}`
+        : "Waiting for live market data...";
+    renderMarketSession(payload.marketSession, payload.marketRegime, marketClosed);
+    marketReactionBias.hidden = true;
     marketReactionBias.innerHTML = "";
-
-    const title = document.createElement("strong");
-    title.textContent = reaction.title || "Waiting for confirmation";
-    const summary = document.createElement("span");
-    summary.textContent = reaction.summary || "The market reaction read will appear when prices load.";
-    marketReactionBias.appendChild(title);
-    marketReactionBias.appendChild(summary);
+    renderMarketRegime(payload.marketRegime);
 
     if (!items.length) {
       const empty = document.createElement("div");
       empty.className = "marketReactionEmpty";
-      empty.textContent = (payload.errors || []).length
-        ? `Market data issue: ${payload.errors.map((error) => error.label).join(", ")} did not load.`
-        : "No market data available yet.";
+      empty.textContent = marketClosed
+        ? "Gold market is closed. Live XAUUSD interpretation is paused until the session reopens."
+        : (payload.errors || []).length
+          ? `Market data issue: ${payload.errors.map((error) => error.label).join(", ")} did not load.`
+          : "No market data available yet.";
       marketReactionGrid.appendChild(empty);
       return;
     }
@@ -539,15 +755,326 @@
       price.className = "marketReactionPrice";
       price.textContent = item.displayPrice;
 
-      const role = document.createElement("div");
-      role.className = "marketReactionRole";
-      role.textContent = item.role === "yield" ? "rates driver" : item.role === "dollar" ? "dollar driver" : item.role;
-
       card.appendChild(top);
       card.appendChild(price);
-      card.appendChild(role);
       marketReactionGrid.appendChild(card);
     });
+
+    renderMarketMoveReason(payload, marketItem);
+  }
+
+  function renderMarketSession(session, regime, marketClosed) {
+    if (marketSessionBadge) {
+      marketSessionBadge.className = `marketSessionBadge ${marketClosed ? "closed" : "open"}`;
+      marketSessionBadge.textContent = marketClosed ? "Session closed" : "Session open";
+    }
+
+    if (marketStateStrip) {
+      const regimeLabel = regime?.label || "Regime loading";
+      const summary = session?.summary || "Checking market session.";
+      marketStateStrip.className = `marketStateStrip ${marketClosed ? "closed" : "open"}`;
+      marketStateStrip.textContent = marketClosed ? summary : `${regimeLabel} • ${summary}`;
+    }
+  }
+
+  function marketPulseWidth(item) {
+    const percent = Math.abs(Number(item?.dayChangePercent) || 0);
+    return Math.max(8, Math.min(100, Math.round(percent * 22)));
+  }
+
+  function renderMarketRegime(regime) {
+    if (!marketRegime) {
+      return;
+    }
+
+    const activeRegime = regime || {};
+    marketRegime.className = `marketRegime ${activeRegime.tone || "mixed"}`;
+    marketRegime.innerHTML = "";
+
+    const visual = document.createElement("div");
+    visual.className = "regimeVisual";
+    ["macro", "haven", "noise"].forEach((mode) => {
+      const dot = document.createElement("span");
+      dot.className = regimeDotClass(activeRegime.label, mode);
+      visual.appendChild(dot);
+    });
+
+    const copy = document.createElement("div");
+    copy.className = "regimeCopy";
+    const label = document.createElement("strong");
+    label.textContent = activeRegime.label || "Regime loading";
+    const summary = document.createElement("span");
+    summary.textContent = regimeShortText(activeRegime);
+    copy.appendChild(label);
+    copy.appendChild(summary);
+
+    marketRegime.appendChild(visual);
+    marketRegime.appendChild(copy);
+  }
+
+  function regimeDotClass(label, mode) {
+    const text = String(label || "").toLowerCase();
+    const active =
+      (mode === "macro" && /dollar|yield/.test(text)) ||
+      (mode === "haven" && /safe-haven|specific/.test(text)) ||
+      (mode === "noise" && /noisy|detached|loading/.test(text));
+    return active ? `active ${mode}` : mode;
+  }
+
+  function regimeShortText(regime) {
+    const label = String(regime?.label || "").toLowerCase();
+    if (/dollar|yield/.test(label)) return "Macro driver";
+    if (/safe-haven/.test(label)) return "Haven bid";
+    if (/specific/.test(label)) return "Gold-only flow";
+    if (/noisy|detached/.test(label)) return "Choppy tape";
+    return "Scanning";
+  }
+
+  function renderMarketMoveReason(payload, marketItem) {
+    if (!marketMoveReason) {
+      return;
+    }
+
+    if (!marketItem) {
+      marketMoveReason.textContent = "Waiting for a live market reason...";
+      return;
+    }
+
+    const reasonItem = pickMarketReasonHeadline(marketItem);
+    const direction = marketItem.move === "up" ? "rising" : marketItem.move === "down" ? "falling" : "flat";
+    const change = marketItem.displayChange || "";
+    marketMoveReason.innerHTML = "";
+
+    const tile = document.createElement("div");
+    tile.className = "reasonTile";
+    const badge = document.createElement("span");
+    badge.className = "reasonBadge";
+    const headline = document.createElement("strong");
+    const sub = document.createElement("span");
+
+    if (!reasonItem) {
+      badge.textContent = direction.toUpperCase();
+      headline.textContent = "Driver unclear";
+      sub.textContent = change || "Waiting for cleaner tape";
+      tile.appendChild(badge);
+      tile.appendChild(headline);
+      tile.appendChild(sub);
+      marketMoveReason.appendChild(tile);
+      return;
+    }
+
+    const driver = marketReasonDriver(reasonItem);
+    badge.textContent = driver;
+    headline.textContent = reasonItem.title;
+    sub.textContent = `${direction} ${change}`.trim();
+    tile.appendChild(badge);
+    tile.appendChild(headline);
+    tile.appendChild(sub);
+    marketMoveReason.appendChild(tile);
+  }
+
+  function pickMarketReasonHeadline(marketItem) {
+    const move = marketItem?.move || "flat";
+    const directionalItems = state.items.filter((item) => {
+      if (!item || isDismissed(item)) return false;
+      if (item.impact === "low" && Number(item.score || 0) < 10) return false;
+      if (move === "up") return item.bias === "bullish" || item.bias === "mixed";
+      if (move === "down") return item.bias === "bearish" || item.bias === "mixed";
+      return true;
+    });
+
+    return directionalItems.sort((left, right) => {
+      const scoreDiff = (Number(right.score) || 0) - (Number(left.score) || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return itemTime(right) - itemTime(left);
+    })[0];
+  }
+
+  function marketReasonDriver(item) {
+    const text = `${item?.title || ""} ${item?.whyItMatters || ""} ${(item?.matchedKeywords || []).join(" ")}`.toLowerCase();
+    if (/\bfed\b|fomc|rate|yield|treasury|dollar|usd|inflation|cpi|pce/.test(text)) {
+      return "MACRO";
+    }
+    if (/war|geopolitic|sanction|oil|middle east|attack|ceasefire/.test(text)) {
+      return "HAVEN";
+    }
+    if (/gold|xauusd|bullion/.test(text)) {
+      return "GOLD";
+    }
+
+    return "NEWS";
+  }
+
+  function renderGoldHourPanel() {
+    if (!goldHourPanel) {
+      return;
+    }
+
+    const payload = state.goldHour || {};
+    if (payload.error) {
+      goldHourPanel.className = "goldHourPanel";
+      goldHourPanel.textContent = `Past-hour gold read unavailable: ${payload.error}`;
+      return;
+    }
+
+    if (payload.marketClosed) {
+      goldHourPanel.className = "goldHourPanel";
+      goldHourPanel.innerHTML = `
+        <div class="goldHourHead">
+          <span>Gold past hour</span>
+          <strong>Market closed</strong>
+        </div>
+        <div class="goldHourFoot">${payload.marketSession?.summary || "Weekend / closed session."}</div>
+      `;
+      return;
+    }
+
+    if (!payload.move) {
+      goldHourPanel.className = "goldHourPanel";
+      goldHourPanel.textContent = "Loading past-hour gold read...";
+      return;
+    }
+
+    const move = payload.move || {};
+    const reason = payload.reason || {};
+    const tone = move.direction === "up" ? "bullish" : move.direction === "down" ? "bearish" : "mixed";
+    const directionText = move.direction === "up" ? "rose" : move.direction === "down" ? "dropped" : "stayed flat";
+    const driver = reason.driver || "NEWS";
+
+    goldHourPanel.className = `goldHourPanel ${tone}`;
+    goldHourPanel.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "goldHourHead";
+    const label = document.createElement("span");
+    label.textContent = "Gold past hour";
+    const change = document.createElement("strong");
+    change.textContent = move.displayChange || "Waiting";
+    head.appendChild(label);
+    head.appendChild(change);
+
+    const body = document.createElement("div");
+    body.className = "goldHourBody";
+    const badge = document.createElement("span");
+    badge.className = "goldHourBadge";
+    badge.textContent = driver;
+    const copy = document.createElement("p");
+    copy.textContent = reason.title
+      ? `Gold ${directionText} over the past hour. The biggest related headline is: ${reason.title}`
+      : `Gold ${directionText} over the past hour, but no major matching headline has been strong enough to explain it yet.`;
+    body.appendChild(badge);
+    body.appendChild(copy);
+
+    const foot = document.createElement("div");
+    foot.className = "goldHourFoot";
+    foot.textContent = reason.summary || move.summary || "Use this as context, not a trade signal by itself.";
+
+    goldHourPanel.appendChild(head);
+    goldHourPanel.appendChild(body);
+    goldHourPanel.appendChild(foot);
+  }
+
+  function renderGoldSummaryPanel() {
+    if (!goldSummaryPanel || !goldHourSummaryBtn || !goldSummaryModal) {
+      return;
+    }
+
+    goldHourSummaryBtn.textContent = "Why Gold Moved";
+    goldSummaryModal.hidden = !state.goldSummaryOpen;
+    if (!state.goldSummaryOpen) {
+      goldSummaryPanel.innerHTML = "";
+      return;
+    }
+
+    const payload = state.goldSummary || {};
+    if (payload.error) {
+      goldSummaryPanel.className = "goldSummaryPanel";
+      goldSummaryPanel.textContent = `Summary unavailable: ${payload.error}`;
+      return;
+    }
+
+    const summary = payload.summary || {};
+    goldSummaryPanel.className = `goldSummaryPanel ${summary.move?.direction || "mixed"}`;
+    goldSummaryPanel.innerHTML = "";
+
+    const top = document.createElement("div");
+    top.className = "goldSummaryTop";
+    const title = document.createElement("strong");
+    title.textContent = `Last ${payload.hours || 4}h summary`;
+    const driver = document.createElement("span");
+    driver.textContent = summary.driver || "NEWS";
+    top.appendChild(title);
+    top.appendChild(driver);
+
+    const summaryText = document.createElement("p");
+    summaryText.className = "goldSummaryText";
+    summaryText.textContent = summary.composed || summary.summary || "No recent multi-hour summary available.";
+
+    const narrative = document.createElement("p");
+    narrative.className = "goldSummaryNarrative";
+    narrative.textContent = [summary.takeaway, summary.narrative].filter(Boolean).join(" ");
+
+    goldSummaryPanel.appendChild(top);
+    goldSummaryPanel.appendChild(summaryText);
+    if (summary.takeaway || summary.narrative) {
+      goldSummaryPanel.appendChild(narrative);
+    }
+
+    if (payload.marketClosed && payload.marketSession?.summary) {
+      const closedNote = document.createElement("p");
+      closedNote.className = "goldSummaryNarrative";
+      closedNote.textContent = payload.marketSession.summary;
+      goldSummaryPanel.appendChild(closedNote);
+    }
+
+    const headlines = Array.isArray(summary.headlines) ? summary.headlines : [];
+    if (headlines.length) {
+      const list = document.createElement("div");
+      list.className = "goldSummaryHeadlines";
+      headlines.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "goldSummaryHeadline";
+        const source = document.createElement("strong");
+        source.textContent = item.sourceName || "Source";
+        const title = document.createElement("span");
+        title.textContent = item.title || "";
+        row.appendChild(source);
+        row.appendChild(title);
+        if (item.why) {
+          const why = document.createElement("small");
+          why.textContent = item.why;
+          row.appendChild(why);
+        }
+        list.appendChild(row);
+      });
+      goldSummaryPanel.appendChild(list);
+    }
+  }
+
+  async function loadGoldHour() {
+    try {
+      const response = await fetchJson(`/api/market/gold-hour?watchlist=${encodeURIComponent(state.watchlistId)}`);
+      state.goldHour = response.goldHour || null;
+    } catch (error) {
+      state.goldHour = {
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    renderGoldHourPanel();
+  }
+
+  async function loadGoldSummary() {
+    try {
+      const response = await fetchJson(`/api/market/gold-summary?watchlist=${encodeURIComponent(state.watchlistId)}&hours=4`);
+      state.goldSummary = response.goldSummary || null;
+    } catch (error) {
+      state.goldSummary = {
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    renderGoldSummaryPanel();
   }
 
   async function loadMarketReaction() {
@@ -569,9 +1096,20 @@
           summary: "Price confirmation could not be loaded.",
         },
       };
+      state.estimateLog = null;
+    }
+
+    try {
+      const estimateResponse = await fetchJson(`/api/market/estimates?watchlist=${encodeURIComponent(state.watchlistId)}&limit=24`);
+      state.estimateLog = estimateResponse.estimates || null;
+    } catch {
+      state.estimateLog = null;
     }
 
     renderMarketReaction();
+    renderTradeChecklist();
+    renderGoldProjection();
+    loadGoldHour().catch(() => {});
   }
 
   function createTag(label, className) {
@@ -622,6 +1160,248 @@
       className: "low",
       summary: "Useful context, but not strong enough for an immediate trade decision.",
     };
+  }
+
+  function renderTradeChecklist() {
+    if (!tradeChecklist) {
+      return;
+    }
+
+    const marketItem = Array.isArray(state.marketReaction?.items) ? state.marketReaction.items[0] : null;
+    const regime = state.marketReaction?.marketRegime || {};
+    const displayItems = getDisplayItems();
+    const bestItem =
+      displayItems.find((item) => actionabilityMeta(item).label === "Trade now") ||
+      displayItems.find((item) => actionabilityMeta(item).label === "Wait for confirmation") ||
+      displayItems[0];
+    const bestAction = actionabilityMeta(bestItem);
+    const nextCatalyst = nearestCatalyst();
+    const marketMove = marketItem?.move || "flat";
+    const riskyEvent = nextCatalyst && nextCatalyst.impact === "high" && minutesUntil(nextCatalyst.scheduledAt) <= 30;
+
+    let verdict = "Wait";
+    let tone = "wait";
+    if (riskyEvent) {
+      verdict = "No trade";
+      tone = "danger";
+    } else if (bestAction.label === "Trade now" && marketMove !== "flat") {
+      verdict = "Trade setup";
+      tone = marketMove === "up" ? "bullish" : "bearish";
+    } else if (!bestItem || bestAction.label === "Background only") {
+      verdict = "Observe";
+    }
+
+    const marketText =
+      marketMove === "up" ? "XAUUSD rising" : marketMove === "down" ? "XAUUSD falling" : marketItem ? "XAUUSD flat" : "No quote";
+    const newsText = bestItem ? `${bestAction.label} / ${bestItem.bias || "mixed"}` : "No signal";
+    const riskText = nextCatalyst ? catalystRiskText(nextCatalyst) : "No nearby event";
+
+    tradeChecklist.innerHTML = "";
+    const verdictBox = document.createElement("div");
+    verdictBox.className = `tradeChecklistVerdict ${tone}`;
+    verdictBox.innerHTML = `<span>Decision</span><strong>${verdict}</strong>`;
+
+    const steps = document.createElement("div");
+    steps.className = "tradeChecklistSteps";
+    [
+      { label: "Market", value: marketText, tone: marketMove === "up" ? "bullish" : marketMove === "down" ? "bearish" : "wait" },
+      { label: "News", value: newsText, tone: bestAction.className || "wait" },
+      { label: "Risk", value: riskText, tone: riskyEvent ? "danger" : "wait" },
+      { label: "Regime", value: regime.label || "Scanning", tone: regime.tone || "wait" },
+    ].forEach((step) => {
+      const node = document.createElement("div");
+      node.className = `tradeStep ${step.tone}`;
+      const label = document.createElement("span");
+      label.textContent = step.label;
+      const value = document.createElement("strong");
+      value.textContent = step.value;
+      node.appendChild(label);
+      node.appendChild(value);
+      steps.appendChild(node);
+    });
+
+    tradeChecklist.appendChild(verdictBox);
+    tradeChecklist.appendChild(steps);
+  }
+
+  function renderGoldProjection() {
+    if (!goldProjectionBox) {
+      return;
+    }
+
+    const marketItem = Array.isArray(state.marketReaction?.items) ? state.marketReaction.items[0] : null;
+    const price = Number(marketItem?.price);
+    const audit = state.marketReaction?.estimateAudit;
+    if (audit?.marketClosed) {
+      goldProjectionBox.className = "goldProjectionBox";
+      goldProjectionBox.innerHTML = `
+        <div class="projectionHead">
+          <span>Gold est.</span>
+          <em>Closed</em>
+        </div>
+        <strong>Market closed</strong>
+        <small>No new XAUUSD lock</small>
+      `;
+      renderGoldProjectionResult();
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      goldProjectionBox.className = "goldProjectionBox";
+      goldProjectionBox.innerHTML = "<span>Gold est.</span><strong>--</strong>";
+      renderGoldProjectionResult();
+      return;
+    }
+
+    const items = getDisplayItems();
+    const bestItem =
+      items.find((item) => actionabilityMeta(item).label === "Trade now") ||
+      items.find((item) => actionabilityMeta(item).label === "Wait for confirmation") ||
+      items[0];
+    const regimeTone = state.marketReaction?.marketRegime?.tone || "mixed";
+    const move = marketItem.move || "flat";
+    const bias = bestItem?.bias || "mixed";
+    const directionalVotes = [
+      move === "up" ? 1 : move === "down" ? -1 : 0,
+      regimeTone === "bullish" ? 1 : regimeTone === "bearish" ? -1 : 0,
+      bias === "bullish" ? 1 : bias === "bearish" ? -1 : 0,
+    ];
+    const voteScore = directionalVotes.reduce((total, vote) => total + vote, 0);
+    const direction = voteScore >= 2 ? 1 : voteScore <= -2 ? -1 : 0;
+    if (audit && Number.isFinite(Number(audit.target))) {
+      const tone = audit.direction === "up" ? "bullish" : audit.direction === "down" ? "bearish" : "wait";
+      goldProjectionBox.className = `goldProjectionBox ${tone}`;
+      goldProjectionBox.innerHTML = `
+        <div class="projectionHead">
+          <span>${audit.direction === "up" ? "Target up" : audit.direction === "down" ? "Target down" : "Target flat"}</span>
+          <em>${audit.confidence || 35}%</em>
+        </div>
+        <strong>${formatProjectionTarget(audit.target)}</strong>
+        <small>Zone ${formatProjectionTarget(audit.low)} - ${formatProjectionTarget(audit.high)}</small>
+      `;
+      renderGoldProjectionResult();
+      return;
+    }
+
+    const dayMove = Math.abs(Number(marketItem.dayChangePercent) || 0);
+    const score = Number(bestItem?.score || 0);
+    const confidenceRaw = Number(bestItem?.confidence || 45);
+    const signalStrength = score >= 18 && confidenceRaw >= 70 ? 1.2 : score >= 12 && confidenceRaw >= 58 ? 1.05 : 0.85;
+    const suggestedDistance = direction === 0 ? 0 : price * (clamp(dayMove * 0.18 + 0.08 * signalStrength, 0.08, 0.32) / 100);
+    const targetDistance = clamp(suggestedDistance, direction === 0 ? 0 : 5, 12);
+    const target = direction === 0 ? price : price + direction * targetDistance;
+    const roundedTarget = Math.round(target / 5) * 5;
+    const low = roundedTarget - 5;
+    const high = roundedTarget + 5;
+    const tone = direction > 0 ? "bullish" : direction < 0 ? "bearish" : "wait";
+    const arrow = direction > 0 ? "up" : direction < 0 ? "down" : "flat";
+    const agreement = Math.abs(voteScore);
+    const confidence =
+      bestItem && direction !== 0
+        ? clamp(Math.round(confidenceRaw * 0.62 + agreement * 9 + Math.min(12, dayMove * 2)), 42, 86)
+        : 35;
+    goldProjectionBox.className = `goldProjectionBox ${tone}`;
+    goldProjectionBox.innerHTML = `
+      <div class="projectionHead">
+        <span>${arrow === "up" ? "Target up" : arrow === "down" ? "Target down" : "Target flat"}</span>
+        <em>${confidence}%</em>
+      </div>
+      <strong>${formatProjectionTarget(roundedTarget)}</strong>
+      <small>Zone ${formatProjectionTarget(low)} - ${formatProjectionTarget(high)}</small>
+    `;
+    renderGoldProjectionResult();
+  }
+
+  function renderGoldProjectionResult() {
+    if (!goldProjectionResult) {
+      return;
+    }
+
+    const entries = Array.isArray(state.estimateLog?.entries) ? state.estimateLog.entries : [];
+    const completed = entries.find((entry) => entry?.actualAt);
+    const pending = entries.find((entry) => !entry?.actualAt);
+    const entry = completed || pending;
+
+    if (!entry) {
+      goldProjectionResult.className = "goldProjectionResult";
+      goldProjectionResult.innerHTML = "<span>Prev</span><strong>--</strong>";
+      return;
+    }
+
+    if (!entry.actualAt) {
+      goldProjectionResult.className = "goldProjectionResult pending";
+      goldProjectionResult.innerHTML = `
+        <span>Prev</span>
+        <strong>...</strong>
+      `;
+      return;
+    }
+
+    const hit = Boolean(entry.zoneHit || entry.directionHit);
+    const actual = Number(entry.actualPrice);
+    const target = Number(entry.target);
+    const diff = Number.isFinite(Number(entry.error)) ? Number(entry.error) : actual - target;
+    goldProjectionResult.className = `goldProjectionResult ${hit ? "hit" : "miss"}`;
+    goldProjectionResult.innerHTML = `
+      <span>Prev</span>
+      <strong>${hit ? "OK" : "No"}</strong>
+      <small>${formatSignedProjectionDiff(diff)}</small>
+    `;
+  }
+
+  function formatProjectionTarget(value) {
+    return Math.round(value).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  function formatSignedProjectionDiff(value) {
+    const rounded = Math.round(Number(value) || 0);
+    return `${rounded >= 0 ? "+" : ""}${rounded}`;
+  }
+
+  function nearestCatalyst() {
+    const catalysts = Array.isArray(state.catalysts?.items) ? state.catalysts.items : [];
+    return catalysts
+      .filter((item) => minutesUntil(item.scheduledAt) >= 0)
+      .sort((left, right) => minutesUntil(left.scheduledAt) - minutesUntil(right.scheduledAt))[0];
+  }
+
+  function minutesUntil(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? Math.round((time - Date.now()) / 60_000) : Number.POSITIVE_INFINITY;
+  }
+
+  function catalystRiskText(catalyst) {
+    const minutes = minutesUntil(catalyst.scheduledAt);
+    if (!Number.isFinite(minutes)) return "Event time unclear";
+    if (minutes <= 0) return "Event live";
+    if (minutes < 60) return `${catalyst.impact || "event"} in ${minutes}m`;
+    return `${catalyst.impact || "event"} in ${Math.round(minutes / 60)}h`;
+  }
+
+  function processTradeNowNotifications(items) {
+    const tradeNowItems = (items || []).filter((item) => actionabilityMeta(item).label === "Trade now");
+    let shouldPlay = false;
+    let changed = false;
+
+    tradeNowItems.forEach((item) => {
+      if (!item.key || state.tradeNowNotifiedKeys[item.key]) {
+        return;
+      }
+
+      state.tradeNowNotifiedKeys[item.key] = Date.now();
+      changed = true;
+      if (state.hasLoadedNewsOnce) {
+        shouldPlay = true;
+      }
+    });
+
+    if (changed) {
+      persistTradeNowNotifiedKeys();
+    }
+
+    if (shouldPlay) {
+      playSoftTradeNowSound();
+    }
   }
 
   function sourceTierTagClass(item) {
@@ -898,23 +1678,16 @@
     const head = document.createElement("div");
     head.className = "newsPriceReactionHead";
     const title = document.createElement("strong");
-    title.textContent = reaction.title || "Price reaction unavailable";
+    title.textContent = "Movement since headline";
     const statePill = document.createElement("span");
-    statePill.className = `newsPriceReactionState ${reaction.confirmation || "mixed"}`;
-    statePill.textContent =
-      reaction.confirmation === "bullish"
-        ? "Confirming"
-        : reaction.confirmation === "bearish"
-          ? "Confirming"
-          : reaction.confirmation === "conflict"
-            ? "Conflicting"
-            : "Still forming";
+    statePill.className = "newsPriceReactionState mixed";
+    statePill.textContent = "Context";
     head.appendChild(title);
     head.appendChild(statePill);
 
     const summary = document.createElement("p");
     summary.className = "newsPriceReactionSummary";
-    summary.textContent = reaction.summary || "Not enough market data is available for this headline yet.";
+    summary.textContent = reaction.summary || "Raw movement only. This is not a confirmation signal.";
 
     detailReaction.appendChild(head);
     detailReaction.appendChild(summary);
@@ -1153,7 +1926,7 @@
         await fetchJson(`/api/news/refresh?watchlist=${encodeURIComponent(state.watchlistId)}`);
       }
 
-      const [statusResponse, itemsResponse] = await Promise.all([
+      const [statusResult, itemsResult] = await Promise.allSettled([
         fetchJson(`/api/news/status?watchlist=${encodeURIComponent(state.watchlistId)}`),
         fetchJson(
           `/api/news/items?watchlist=${encodeURIComponent(state.watchlistId)}&minScore=${encodeURIComponent(
@@ -1163,6 +1936,23 @@
           )}&sourceMode=${encodeURIComponent(state.sourceMode)}&tradingMode=${encodeURIComponent(state.tradingMode)}`
         ),
       ]);
+
+      if (statusResult.status === "rejected") {
+        throw statusResult.reason;
+      }
+
+      const statusResponse = statusResult.value;
+      state.status = statusResponse.status;
+      state.clientError = "";
+
+      if (itemsResult.status === "rejected") {
+        state.clientError =
+          itemsResult.reason instanceof Error ? itemsResult.reason.message : String(itemsResult.reason);
+        state.items = [];
+      } else {
+        state.items = itemsResult.value.items || [];
+      }
+
       let catalysts = null;
 
       try {
@@ -1180,13 +1970,16 @@
         };
       }
 
-      state.status = statusResponse.status;
-      state.items = itemsResponse.items || [];
       state.catalysts = catalysts;
+      processTradeNowNotifications(state.items);
+      state.hasLoadedNewsOnce = true;
       renderStatus();
       loadMarketReaction().catch(() => {});
       renderCatalysts();
+      renderGoldHourPanel();
       renderItems();
+      renderTradeChecklist();
+      renderGoldProjection();
     } catch (error) {
       state.status = {
         ...(state.status || {}),
@@ -1197,10 +1990,13 @@
         totalItems: state.status?.totalItems || 0,
         newItemCount: state.status?.newItemCount || 0,
       };
+      state.clientError = "";
       renderStatus();
       renderMarketReaction();
       renderCatalysts();
       renderItems();
+      renderTradeChecklist();
+      renderGoldProjection();
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.textContent = "Check now";
@@ -1342,6 +2138,48 @@
   refreshBtn.addEventListener("click", () => {
     loadNews({ refresh: true }).catch(() => {});
   });
+
+  if (goldHourSummaryBtn) {
+    goldHourSummaryBtn.addEventListener("click", () => {
+      state.goldSummaryOpen = true;
+      if (!state.goldSummary) {
+        loadGoldSummary().catch(() => {});
+        return;
+      }
+      renderGoldSummaryPanel();
+    });
+  }
+
+  function closeGoldSummaryModal() {
+    state.goldSummaryOpen = false;
+    renderGoldSummaryPanel();
+  }
+
+  if (goldSummaryBackdrop) {
+    goldSummaryBackdrop.addEventListener("click", closeGoldSummaryModal);
+  }
+
+  if (goldSummaryCloseBtn) {
+    goldSummaryCloseBtn.addEventListener("click", closeGoldSummaryModal);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.goldSummaryOpen) {
+      closeGoldSummaryModal();
+    }
+  });
+
+  if (notificationSoundBtn) {
+    renderSoundToggle();
+    notificationSoundBtn.addEventListener("click", () => {
+      state.soundEnabled = !state.soundEnabled;
+      persistSoundEnabled();
+      renderSoundToggle();
+      if (state.soundEnabled) {
+        playSoftTradeNowSound();
+      }
+    });
+  }
 
   visibleBtn.addEventListener("click", () => {
     state.listMode = "visible";

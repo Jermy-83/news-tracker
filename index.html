@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Market Intelligence Desk</title>
+    <title>News Tracker</title>
+    <script>
+      (() => {
+        try {
+          const saved = window.localStorage.getItem("news-tracker-theme");
+          const theme = saved === "light" || saved === "dark" ? saved : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_) {}
+      })();
+    </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -13,60 +22,33 @@
         <div class="brandBlock">
           <div class="brandMark">NT</div>
           <div>
-            <div class="eyebrow">News Operations</div>
-            <div class="brandTitle">Market Intelligence Desk</div>
+            <div class="eyebrow">Realtime Intelligence</div>
+            <div class="brandTitle">News Tracker</div>
           </div>
         </div>
         <div class="topbarMeta">
-          <div class="topbarChip">Event-driven coverage</div>
-          <div class="topbarChip">Macro + assets</div>
-          <div class="topbarChip">Live desk workflow</div>
+          <button id="themeToggleBtn" class="themeToggleBtn" type="button" aria-label="Switch to light mode">
+            <span class="themeToggleOrb" aria-hidden="true"></span>
+            <span id="themeToggleLabel">Dark mode</span>
+          </button>
+          <button id="notificationSoundBtn" class="topbarChip soundToggle" type="button">Sound on</button>
+          <div class="topbarChip">Live signals</div>
+          <div class="topbarChip">Macro context</div>
+          <div class="topbarChip">High-conviction headlines</div>
         </div>
       </header>
-
-      <section class="masthead panel">
-        <div class="mastheadCopy">
-          <div class="eyebrow">Live Market Intelligence</div>
-          <h1>Market Intelligence Desk</h1>
-          <p class="mastheadLead">
-            Filter for timeliness, signal quality, and impact score. Scan the list, confirm the read, and open the selected
-            item with cleaner context before you click through to the source.
-          </p>
-          <div class="mastheadActions">
-            <div id="newsStatusPill" class="biasPill wait">Loading feeds</div>
-            <button id="newsRefreshBtn" class="pillBtn" type="button">Check now</button>
-          </div>
-        </div>
-
-        <div class="briefingGrid">
-          <article class="briefingCard accentCard">
-            <span class="briefingLabel">Scanner mode</span>
-            <strong>Rank, confirm, react</strong>
-            <p>Use strict filters by default, then widen the context only when you need it.</p>
-          </article>
-          <article class="briefingCard">
-            <span class="briefingLabel">Coverage</span>
-            <strong>Macro, rates, geopolitics, crypto</strong>
-            <p>The desk is tuned for tradable developments rather than background explainers.</p>
-          </article>
-          <article class="briefingCard">
-            <span class="briefingLabel">Workflow</span>
-            <strong>Fresh first, visible after review</strong>
-            <p>Unread fresh items stay separated until you open them and move them into the visible queue.</p>
-          </article>
-        </div>
-      </section>
 
       <section class="workspace panel">
         <div class="workspaceHead">
           <div>
-            <div class="sectionEyebrow">Scanner Console</div>
-            <h2>Live headline desk</h2>
+            <div class="sectionEyebrow">Market Overview</div>
+            <h2>Live headline briefing</h2>
+            <p class="workspaceLead muted">A calmer, glanceable view of what matters now across gold, rates, and macro risk.</p>
           </div>
-          <p class="workspaceLead">
-            Tight filters for intraday action, broader settings for context, and a dedicated live tape beside the main
-            desk.
-          </p>
+          <div class="workspaceActions">
+            <div id="newsStatusPill" class="biasPill wait">Loading feeds</div>
+            <button id="newsRefreshBtn" class="pillBtn" type="button">Check now</button>
+          </div>
         </div>
 
         <div class="controlDeck">
@@ -135,6 +117,27 @@
               <strong id="newsLastCheckLabel">Waiting</strong>
             </div>
           </div>
+
+          <div id="tradeChecklist" class="tradeChecklist">
+            <div class="tradeChecklistVerdict wait">
+              <span>Decision</span>
+              <strong>Loading</strong>
+            </div>
+            <div class="tradeChecklistSteps">
+              <div class="tradeStep">
+                <span>Market</span>
+                <strong>Checking XAUUSD</strong>
+              </div>
+              <div class="tradeStep">
+                <span>News</span>
+                <strong>Waiting for signal</strong>
+              </div>
+              <div class="tradeStep">
+                <span>Risk</span>
+                <strong>Checking catalysts</strong>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="radarDashboard">
@@ -145,11 +148,6 @@
                 <p id="newsDeskDescription" class="muted">Loading watchlist metadata...</p>
               </div>
               <div class="radarHeadSide">
-                <div class="radarLegend">
-                  <span class="legendItem"><span class="legendSwatch radarHigh"></span>High impact</span>
-                  <span class="legendItem"><span class="legendSwatch radarMedium"></span>Medium</span>
-                  <span class="legendItem"><span class="legendSwatch radarFresh"></span>Fresh</span>
-                </div>
                 <div class="probabilityStrip">
                   <span class="probabilityLabel">Desk bias</span>
                   <span id="newsBullishProb" class="probabilityPill bullish">Bullish 50%</span>
@@ -170,9 +168,13 @@
                   <strong>XAUUSD live market</strong>
                   <p id="marketReactionSummary" class="muted">Loading current XAUUSD quote...</p>
                 </div>
+                <div id="marketSessionBadge" class="marketSessionBadge">Checking session</div>
               </div>
               <div id="marketReactionBias" class="marketReactionBias">Waiting for market data...</div>
+              <div id="marketRegime" class="marketRegime">Market regime loading...</div>
+              <div id="marketStateStrip" class="marketStateStrip">Building market snapshot...</div>
               <div id="marketReactionGrid" class="marketReactionGrid"></div>
+              <div id="marketMoveReason" class="marketMoveReason">Waiting for a live market reason...</div>
             </article>
 
             <article class="chartCard radarDetailCard">
@@ -213,7 +215,6 @@
                   <strong id="newsFeedCount">0</strong>
                 </div>
               </div>
-              <div id="newsFeedList" class="feedStatusList"></div>
               <div id="newsErrorBox" class="newsErrorBox" hidden></div>
             </article>
 
@@ -226,46 +227,36 @@
                   </p>
                 </div>
               </div>
-              <div class="embedNotice">
-                Multi-source XAUUSD catalyst view using live calendar data, official release references, and desk
-                impact scoring in one merged tape.
-              </div>
               <div id="newsCatalystSummary" class="catalystSummary">Waiting for catalyst data...</div>
               <div id="newsCatalystList" class="catalystList"></div>
-            </article>
-
-            <article class="chartCard radarTapeCard">
-              <div class="chartMeta">
-                <div>
-                  <strong>FinancialJuice live tape</strong>
-                  <p class="muted">Official embedded live feed for fast macro and market headlines.</p>
-                </div>
+              <div class="goldHourActions">
+                <button id="goldHourSummaryBtn" class="goldHourSummaryBtn" type="button">Why Gold Moved</button>
               </div>
-              <div class="embedNotice">
-                The direct RSS endpoint is rate-limited from this machine, so this card uses the official FinancialJuice
-                widget for stable real-time access.
-              </div>
-              <div class="fjWidgetShell">
-                <iframe
-                  class="fjWidgetFrame"
-                  src="https://feed.financialjuice.com/widgets/headlines.aspx?affurl=&backC=1e222d&container=financialjuice-news-widget-container&fontC=b2b5be&height=900px&mode=Light&width=100%25&wtype=NEWS"
-                  title="FinancialJuice live news"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                ></iframe>
-              </div>
-              <a
-                class="newsReferenceLink fjWidgetLink"
-                href="https://www.financialjuice.com/home?widget=headline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open FinancialJuice
-              </a>
+              <div id="goldHourPanel" class="goldHourPanel">Loading past-hour gold read...</div>
             </article>
           </div>
         </div>
       </section>
+    </div>
+
+    <div id="goldSummaryModal" class="goldSummaryModal" hidden>
+      <div id="goldSummaryBackdrop" class="goldSummaryBackdrop"></div>
+      <div id="goldSummaryDialog" class="goldSummaryDialog" role="dialog" aria-modal="true" aria-labelledby="goldSummaryTitle">
+        <div class="goldSummaryDialogHead">
+          <strong id="goldSummaryTitle">Gold Summary</strong>
+          <button id="goldSummaryCloseBtn" class="goldSummaryCloseBtn" type="button" aria-label="Close summary">Close</button>
+        </div>
+        <div id="goldSummaryPanel" class="goldSummaryPanel"></div>
+      </div>
+    </div>
+
+    <div id="goldProjectionBox" class="goldProjectionBox">
+      <span>Gold est.</span>
+      <strong>--</strong>
+    </div>
+    <div id="goldProjectionResult" class="goldProjectionResult">
+      <span>Prev</span>
+      <strong>--</strong>
     </div>
 
     <script src="./news-app.js"></script>
