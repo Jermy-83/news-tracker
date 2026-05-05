@@ -26,16 +26,6 @@
             <div class="brandTitle">News Tracker</div>
           </div>
         </div>
-        <div class="topbarMeta">
-          <button id="themeToggleBtn" class="themeToggleBtn" type="button" aria-label="Switch to light mode">
-            <span class="themeToggleOrb" aria-hidden="true"></span>
-            <span id="themeToggleLabel">Dark mode</span>
-          </button>
-          <button id="notificationSoundBtn" class="topbarChip soundToggle" type="button">Sound on</button>
-          <div class="topbarChip">Live signals</div>
-          <div class="topbarChip">Macro context</div>
-          <div class="topbarChip">High-conviction headlines</div>
-        </div>
       </header>
 
       <section class="workspace panel">
@@ -46,6 +36,11 @@
             <p class="workspaceLead muted">A calmer, glanceable view of what matters now across gold, rates, and macro risk.</p>
           </div>
           <div class="workspaceActions">
+            <button id="themeToggleBtn" class="themeToggleBtn workspaceThemeToggle" type="button" aria-label="Switch to light mode">
+              <span class="themeToggleOrb" aria-hidden="true"></span>
+              <span id="themeToggleLabel">Dark mode</span>
+            </button>
+            <button id="notificationSoundBtn" class="topbarChip soundToggle" type="button">Sound on</button>
             <div id="newsStatusPill" class="biasPill wait">Loading feeds</div>
             <button id="newsRefreshBtn" class="pillBtn" type="button">Check now</button>
           </div>

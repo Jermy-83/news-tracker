@@ -27,13 +27,13 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #eef2f8;
+  --bg: #eff3f9;
   --bg-2: #f7f9fd;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-2: rgba(255, 255, 255, 0.86);
-  --surface-3: rgba(246, 249, 255, 0.94);
-  --line: rgba(122, 145, 178, 0.18);
-  --line-strong: rgba(95, 122, 160, 0.34);
+  --surface: rgba(255, 255, 255, 0.76);
+  --surface-2: rgba(255, 255, 255, 0.9);
+  --surface-3: rgba(248, 251, 255, 0.96);
+  --line: rgba(132, 154, 184, 0.18);
+  --line-strong: rgba(99, 126, 162, 0.34);
   --text: #101826;
   --muted: #6a778b;
   --muted-strong: #314055;
@@ -105,9 +105,9 @@ input {
 
 :root[data-theme="light"] .siteBackdrop {
   background:
-    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.72), transparent 18rem),
-    radial-gradient(circle at 82% 8%, rgba(47, 124, 246, 0.12), transparent 22rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(188, 205, 226, 0.12));
+    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.6), transparent 18rem),
+    radial-gradient(circle at 82% 8%, rgba(47, 124, 246, 0.08), transparent 22rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(188, 205, 226, 0.1));
 }
 
 .siteShell {
@@ -135,7 +135,7 @@ input {
 .topbar {
   min-height: 72px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 20px;
   padding: 14px 18px;
@@ -202,6 +202,18 @@ input {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.workspaceActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspaceThemeToggle {
+  min-width: 132px;
 }
 
 .themeToggleBtn {
@@ -319,9 +331,9 @@ input {
 :root[data-theme="light"] .catalystSourceChip,
 :root[data-theme="light"] .sourceQualityChip,
 :root[data-theme="light"] .catalystValues span {
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  background: rgba(255, 255, 255, 0.52);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(151, 173, 203, 0.36);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .soundToggle {
@@ -436,8 +448,8 @@ select {
 }
 
 :root[data-theme="light"] select {
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  background-color: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(148, 169, 199, 0.38);
+  background-color: rgba(255, 255, 255, 0.8);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
@@ -502,9 +514,40 @@ option {
 :root[data-theme="light"] .scoreBadge,
 :root[data-theme="light"] .tradeChecklistVerdict,
 :root[data-theme="light"] .tradeStep {
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  background: rgba(255, 255, 255, 0.56);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(144, 167, 199, 0.48);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(242, 247, 255, 0.8));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 10px 24px rgba(123, 146, 179, 0.08);
+}
+
+:root[data-theme="light"] .deskRibbon,
+:root[data-theme="light"] .tradeChecklistSteps {
+  gap: 10px;
+}
+
+:root[data-theme="light"] .field {
+  padding: 12px 14px 13px;
+  border: 1px solid rgba(144, 167, 199, 0.44);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 255, 0.84));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 10px 22px rgba(123, 146, 179, 0.07);
+}
+
+:root[data-theme="light"] .deskRibbonCard,
+:root[data-theme="light"] .scoreBadge,
+:root[data-theme="light"] .tradeChecklistVerdict,
+:root[data-theme="light"] .tradeStep {
+  border-width: 1px;
+}
+
+:root[data-theme="light"] .controlDeck {
+  border: 1px solid rgba(177, 194, 220, 0.62);
+  box-shadow:
+    0 16px 32px rgba(126, 146, 178, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 
 .deskRibbonCard strong,
@@ -585,6 +628,14 @@ option {
 .filterBadge.active {
   border-color: rgba(47, 124, 246, 0.26);
   background: rgba(47, 124, 246, 0.1);
+}
+
+:root[data-theme="light"] .filterBadge.active {
+  border-color: rgba(47, 124, 246, 0.2);
+  background: linear-gradient(180deg, rgba(240, 247, 255, 0.96), rgba(229, 239, 252, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 10px 22px rgba(123, 146, 179, 0.08);
 }
 
 .staticBadge {
@@ -1066,6 +1117,13 @@ option {
   color: #ffc0cf;
 }
 
+:root[data-theme="light"] .newsErrorBox {
+  border-color: rgba(221, 74, 104, 0.24);
+  background: rgba(255, 241, 245, 0.94);
+  color: #8f3148;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
 .catalystRisk {
   color: var(--accent-2);
 }
@@ -1110,6 +1168,12 @@ option {
   color: var(--muted);
   text-align: center;
   background: rgba(255, 255, 255, 0.03);
+}
+
+:root[data-theme="light"] .marketReactionEmpty {
+  border-color: rgba(125, 181, 232, 0.3);
+  background: rgba(245, 249, 255, 0.9);
+  color: #5a708b;
 }
 
 .radarHealthGrid,
@@ -1233,6 +1297,7 @@ option {
 
 :root[data-theme="light"] .marketRegime {
   background: rgba(240, 246, 255, 0.84);
+  color: #334c69;
 }
 
 .marketStateStrip {
@@ -1257,6 +1322,7 @@ option {
 
 :root[data-theme="light"] .marketStateStrip {
   background: rgba(255, 255, 255, 0.48);
+  color: #4d6784;
 }
 
 :root[data-theme="light"] .marketStateStrip.open {
@@ -1419,6 +1485,13 @@ option {
   overflow: hidden;
 }
 
+:root[data-theme="light"] .marketMoveReason {
+  border-color: rgba(125, 181, 232, 0.26);
+  background: rgba(242, 247, 255, 0.96);
+  color: #315271;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
 .goldHourPanel {
   display: grid;
   gap: 7px;
@@ -1522,16 +1595,22 @@ option {
 }
 
 .goldHourSummaryBtn {
-  min-height: 32px;
-  padding: 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 132px;
+  padding: 8px 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(52, 67, 92, 0.92), rgba(29, 40, 58, 0.96));
   color: var(--accent-2);
   font-family: var(--sans);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--shadow-soft);
 }
@@ -1541,6 +1620,21 @@ option {
   border-color: rgba(47, 124, 246, 0.24);
   background: linear-gradient(180deg, rgba(60, 79, 108, 0.96), rgba(33, 46, 67, 1));
   transform: translateY(-1px);
+}
+
+:root[data-theme="light"] .goldHourSummaryBtn {
+  border-color: rgba(123, 152, 193, 0.5);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(232, 240, 251, 0.96));
+  color: #1f5fd6;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 10px 22px rgba(143, 166, 201, 0.18);
+}
+
+:root[data-theme="light"] .goldHourSummaryBtn:hover {
+  color: #114fbf;
+  border-color: rgba(88, 126, 181, 0.68);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(221, 233, 249, 0.98));
 }
 
 .goldSummaryModal {
@@ -1839,6 +1933,11 @@ option {
   letter-spacing: 0.08em;
 }
 
+:root[data-theme="light"] .reasonBadge {
+  background: rgba(47, 124, 246, 0.12);
+  color: #215fb7;
+}
+
 .reasonTile strong {
   min-width: 0;
   overflow: hidden;
@@ -1849,11 +1948,19 @@ option {
   white-space: nowrap;
 }
 
+:root[data-theme="light"] .reasonTile strong {
+  color: #12202e;
+}
+
 .reasonTile span:last-child {
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.68rem;
   line-height: 1.1;
+}
+
+:root[data-theme="light"] .reasonTile span:last-child {
+  color: #5a708b;
 }
 
 .catalystList {

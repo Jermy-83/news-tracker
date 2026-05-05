@@ -60,6 +60,7 @@
   const CLIENT_MIN_DELAY_MS = 10_000;
   const CLIENT_MAX_DELAY_MS = 180_000;
   const MARKET_REACTION_POLL_MS = 5_000;
+  const RELATIVE_TIME_REFRESH_MS = 5_000;
   const THEME_STORAGE_KEY = "news-tracker-theme";
   if (!watchlistSelect || !listRoot || !sortSelect || !timelinessSelect || !newsTypeSelect) return;
 
@@ -200,6 +201,7 @@
     sortMode: sortSelect.value || "latest",
     timerHandle: null,
     marketTimerHandle: null,
+    relativeTimeHandle: null,
     initialized: false,
   };
 
@@ -367,6 +369,17 @@
 
     const days = Math.round(hours / 24);
     return formatter.format(-days, "day");
+  }
+
+  function formatClockTime(value) {
+    if (!value) return "Waiting";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Waiting";
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(date);
   }
 
   function formatStamp(value) {
@@ -716,10 +729,13 @@
       items[0];
 
     clear(marketReactionGrid);
+    const appUpdatedAt = payload.generatedAt;
+    const sourceUpdatedAt = marketItem?.updatedAt || payload.generatedAt;
+    const priceLabel = marketItem?.displayPrice || "Waiting";
     marketReactionSummary.textContent = marketClosed
       ? "Weekend / closed session"
       : items.length
-        ? `Updated ${formatRelativeTime(payload.generatedAt)}`
+        ? `XAUUSD ${priceLabel} • app refresh ${formatClockTime(appUpdatedAt)} • source ${formatRelativeTime(sourceUpdatedAt)}`
         : "Waiting for live market data...";
     renderMarketSession(payload.marketSession, payload.marketRegime, marketClosed);
     marketReactionBias.hidden = true;
@@ -761,6 +777,15 @@
     });
 
     renderMarketMoveReason(payload, marketItem);
+  }
+
+  function refreshRelativeTimeLabels() {
+    if (!state.initialized || document.hidden) {
+      return;
+    }
+
+    renderStatus();
+    renderMarketReaction();
   }
 
   function renderMarketSession(session, regime, marketClosed) {
@@ -2027,6 +2052,13 @@
     }
   }
 
+  function clearRelativeTimeTimer() {
+    if (state.relativeTimeHandle) {
+      clearInterval(state.relativeTimeHandle);
+      state.relativeTimeHandle = null;
+    }
+  }
+
   function computeNextPollDelay() {
     const pollMs = Number(state.status?.pollMs) || 90_000;
     const lastSuccessfulPollAt = Date.parse(state.status?.lastSuccessfulPollAt || "");
@@ -2074,12 +2106,20 @@
     }, MARKET_REACTION_POLL_MS);
   }
 
+  function startRelativeTimePolling() {
+    clearRelativeTimeTimer();
+    state.relativeTimeHandle = setInterval(() => {
+      refreshRelativeTimeLabels();
+    }, RELATIVE_TIME_REFRESH_MS);
+  }
+
   async function bootstrap() {
     try {
       await loadWatchlists();
       await loadNews();
       await loadMarketReaction();
       startMarketReactionPolling();
+      startRelativeTimePolling();
       state.initialized = true;
     } catch (error) {
       state.initialized = false;
@@ -2201,6 +2241,7 @@
     if (document.hidden) {
       clearAutoPollingTimer();
       clearMarketReactionTimer();
+      clearRelativeTimeTimer();
       return;
     }
 
@@ -2211,6 +2252,8 @@
     }
 
     startMarketReactionPolling();
+    startRelativeTimePolling();
+    refreshRelativeTimeLabels();
     loadMarketReaction().catch(() => {});
     loadNews().catch(() => {});
   });

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 60_000);
+const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 5_000);
 const MAX_ITEMS = 400;
 const ITEM_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 const ARTICLE_LOG_DIR = process.env.NEWS_ARTICLE_LOG_DIR || path.join(process.cwd(), "article-log");
@@ -278,10 +278,19 @@ const CATALYST_FOLLOWUP_HOURS = 12;
 const NEW_YORK_TIME_ZONE = "America/New_York";
 const FOREX_FACTORY_CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 const CATALYST_FEED_CACHE_MS = 5 * 60 * 1000;
-const MARKET_REACTION_CACHE_MS = 5 * 1000;
+const MARKET_REACTION_CACHE_MS = 1_000;
+const MARKET_REACTION_POLL_MS = 5_000;
 const HEADLINE_REACTION_CACHE_MS = 30 * 1000;
 const MARKET_REACTION_SYMBOLS = [
-  { id: "xauusd", label: "XAUUSD", symbol: "xauusd", role: "live quote", format: "price", source: "stooq" },
+  {
+    id: "xauusd",
+    label: "XAUUSD",
+    symbol: "XAU",
+    role: "live quote",
+    format: "price",
+    source: "goldproxy",
+    sourceLabel: "Yahoo Gold futures",
+  },
   { id: "dxy", label: "DXY", symbol: "DX-Y.NYB", role: "dollar driver", format: "price", visible: false },
   { id: "us10y", label: "US10Y", symbol: "^TNX", role: "yield driver", format: "yield", visible: false },
 ];
@@ -2632,6 +2641,14 @@ function stooqQuoteUrl(symbol) {
   return `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`;
 }
 
+function vangSpotUrl(symbol) {
+  return `https://www.vang.today/api/prices?type=${encodeURIComponent(symbol)}`;
+}
+
+function goldApiSpotUrl(symbol) {
+  return `https://api.gold-api.com/price/${encodeURIComponent(symbol)}`;
+}
+
 function latestFinite(values) {
   for (let index = values.length - 1; index >= 0; index -= 1) {
     const value = Number(values[index]);
@@ -2644,6 +2661,22 @@ function latestFinite(values) {
 }
 
 async function fetchMarketInstrument(instrument) {
+  if (instrument.source === "goldapi") {
+    try {
+      return await fetchGoldApiSpotInstrument(instrument);
+    } catch {
+      return fetchYahooGoldProxyInstrument(instrument);
+    }
+  }
+
+  if (instrument.source === "goldproxy") {
+    return fetchYahooGoldProxyInstrument(instrument);
+  }
+
+  if (instrument.source === "vang") {
+    return fetchVangSpotInstrument(instrument);
+  }
+
   if (instrument.source === "stooq") {
     return fetchStooqInstrument(instrument);
   }
@@ -2690,6 +2723,139 @@ async function fetchMarketInstrument(instrument) {
     intradayChange,
     intradayChangePercent,
     updatedAt: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+  };
+}
+
+async function fetchGoldApiSpotInstrument(instrument) {
+  const response = await fetch(goldApiSpotUrl(instrument.symbol), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${instrument.label} failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const latest = Number(payload.price);
+  const updatedAt = payload.updatedAt ? new Date(payload.updatedAt).toISOString() : new Date().toISOString();
+
+  if (!Number.isFinite(latest)) {
+    throw new Error(`${instrument.label} returned no spot price`);
+  }
+
+  const staleMs = Date.now() - Date.parse(updatedAt);
+  if (Number.isFinite(staleMs) && staleMs > 15_000) {
+    throw new Error(`${instrument.label} spot quote is stale`);
+  }
+
+  return {
+    ...instrument,
+    name: payload.name ? `${payload.name} (XAU/USD)` : instrument.label,
+    price: latest,
+    previousClose: latest,
+    dayChange: 0,
+    dayChangePercent: 0,
+    intradayChange: 0,
+    intradayChangePercent: 0,
+    updatedAt,
+  };
+}
+
+async function fetchYahooGoldProxyInstrument(instrument) {
+  const response = await fetch(yahooChartUrl("GC=F"), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${instrument.label} fallback failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  if (!result) {
+    throw new Error(`${instrument.label} fallback returned no data`);
+  }
+
+  const meta = result.meta || {};
+  const closeValues = result.indicators?.quote?.[0]?.close || [];
+  const latest = Number(meta.regularMarketPrice) || latestFinite(closeValues);
+  const previousClose = Number(meta.previousClose || meta.chartPreviousClose);
+  const firstClose = latestFinite(closeValues.slice(0, 4)) || previousClose;
+
+  if (!Number.isFinite(latest) || !Number.isFinite(previousClose)) {
+    throw new Error(`${instrument.label} fallback has incomplete price data`);
+  }
+
+  const dayChange = latest - previousClose;
+  const dayChangePercent = previousClose ? (dayChange / previousClose) * 100 : 0;
+  const intradayChange = Number.isFinite(firstClose) ? latest - firstClose : dayChange;
+  const intradayChangePercent = Number.isFinite(firstClose) && firstClose ? (intradayChange / firstClose) * 100 : dayChangePercent;
+
+  return {
+    ...instrument,
+    name: "Gold futures (GC=F)",
+    price: latest,
+    previousClose,
+    dayChange,
+    dayChangePercent,
+    intradayChange,
+    intradayChangePercent,
+    updatedAt: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+    sourceLabel: "Yahoo Gold futures",
+  };
+}
+
+async function fetchVangSpotInstrument(instrument) {
+  const response = await fetch(vangSpotUrl(instrument.symbol), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${instrument.label} failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (!payload?.success) {
+    throw new Error(`${instrument.label} returned no spot data`);
+  }
+
+  const latest = Number(payload.buy);
+  const dayChange = Number(payload.change_buy);
+  const previousClose = Number.isFinite(latest) && Number.isFinite(dayChange) ? latest - dayChange : NaN;
+  const updatedAt =
+    Number.isFinite(Number(payload.timestamp)) && Number(payload.timestamp) > 0
+      ? new Date(Number(payload.timestamp) * 1000).toISOString()
+      : new Date().toISOString();
+
+  if (!Number.isFinite(latest) || !Number.isFinite(previousClose) || previousClose <= 0) {
+    throw new Error(`${instrument.label} has incomplete spot data`);
+  }
+
+  const dayChangePercent = previousClose ? (dayChange / previousClose) * 100 : 0;
+
+  return {
+    ...instrument,
+    name: payload.name || instrument.label,
+    price: latest,
+    previousClose,
+    dayChange,
+    dayChangePercent,
+    intradayChange: dayChange,
+    intradayChangePercent: dayChangePercent,
+    updatedAt,
   };
 }
 
@@ -3511,7 +3677,7 @@ async function getMarketReaction(watchlist) {
     generatedAt: new Date().toISOString(),
     watchlistId: watchlist?.id || "xauusd",
     watchlistLabel: watchlist?.label || "XAUUSD",
-    sourceLabel: "Live XAUUSD quote",
+    sourceLabel: items[0]?.sourceLabel || "Gold-API XAU spot",
     marketSession: session,
     reaction,
     marketRegime: buildMarketRegime(items),
@@ -4654,18 +4820,55 @@ class NewsService {
     this.monitors = new Map(
       [WATCHLISTS.xauusd].map((watchlist) => [watchlist.id, new NewsMonitor(watchlist, options)])
     );
+    this.marketReactionIntervalHandle = null;
+    this.marketReactionInFlight = false;
     this.estimateIntervalHandle = null;
     this.estimateInFlight = false;
   }
 
   start() {
     this.monitors.forEach((monitor) => monitor.start());
+    this.startMarketReactionFeed();
     this.startEstimateAudit();
   }
 
   stop() {
+    this.stopMarketReactionFeed();
     this.stopEstimateAudit();
     this.monitors.forEach((monitor) => monitor.stop());
+  }
+
+  startMarketReactionFeed() {
+    if (this.marketReactionIntervalHandle) {
+      return;
+    }
+
+    this.runMarketReactionFeed().catch(() => {});
+    this.marketReactionIntervalHandle = setInterval(() => {
+      this.runMarketReactionFeed().catch(() => {});
+    }, MARKET_REACTION_POLL_MS);
+  }
+
+  stopMarketReactionFeed() {
+    if (!this.marketReactionIntervalHandle) {
+      return;
+    }
+
+    clearInterval(this.marketReactionIntervalHandle);
+    this.marketReactionIntervalHandle = null;
+  }
+
+  async runMarketReactionFeed() {
+    if (this.marketReactionInFlight) {
+      return;
+    }
+
+    this.marketReactionInFlight = true;
+    try {
+      await getMarketReaction(this.getMonitor("xauusd").watchlist);
+    } finally {
+      this.marketReactionInFlight = false;
+    }
   }
 
   startEstimateAudit() {
