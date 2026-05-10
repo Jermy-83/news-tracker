@@ -40,5 +40,8 @@
   "devDependencies": {
     "electron": "^41.3.0",
     "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "@reiryoku/ctrader-layer": "^2.2.0"
   }
 }

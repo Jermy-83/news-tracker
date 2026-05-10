@@ -1,5 +1,6 @@
 const http = require("http");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { createNewsService } = require("./news-monitor");
 
@@ -31,6 +32,173 @@ function sendJson(res, statusCode, payload) {
     "Cache-Control": "no-store",
   });
   res.end(JSON.stringify(payload));
+}
+
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+function notificationConfigCandidates() {
+  const candidates = [];
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  const execDir = process.execPath ? path.dirname(process.execPath) : "";
+  const cwdDir = process.cwd();
+  const appDataDir = process.env.APPDATA ? path.join(process.env.APPDATA, "Market Intelligence Desk") : "";
+  const homeConfigDir = path.join(os.homedir(), ".market-intelligence-desk");
+
+  if (portableDir) {
+    candidates.push(path.join(portableDir, "phone-notify.json"));
+  }
+  if (execDir) {
+    candidates.push(path.join(execDir, "phone-notify.json"));
+  }
+  if (cwdDir) {
+    candidates.push(path.join(cwdDir, "phone-notify.json"));
+  }
+  if (appDataDir) {
+    candidates.push(path.join(appDataDir, "phone-notify.json"));
+  }
+  candidates.push(path.join(homeConfigDir, "phone-notify.json"));
+  candidates.push(path.join(root, "phone-notify.json"));
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function loadPhoneNotificationConfig() {
+  const envTopic = String(process.env.NTFY_TOPIC || "").trim();
+  if (envTopic) {
+    return {
+      enabled: process.env.PHONE_NOTIFY_ENABLED !== "0",
+      provider: "ntfy",
+      server: String(process.env.NTFY_SERVER || "https://ntfy.sh").trim(),
+      topic: envTopic,
+      token: String(process.env.NTFY_TOKEN || "").trim(),
+      clickBaseUrl: String(process.env.NTFY_CLICK_BASE_URL || "").trim(),
+      configPath: "environment",
+    };
+  }
+
+  const configPath = notificationConfigCandidates().find((candidate) => fs.existsSync(candidate));
+  if (!configPath) {
+    return {
+      enabled: false,
+      provider: "",
+      server: "",
+      topic: "",
+      token: "",
+      clickBaseUrl: "",
+      configPath: "",
+    };
+  }
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return {
+      enabled: raw.enabled !== false,
+      provider: String(raw.provider || "ntfy").toLowerCase(),
+      server: String(raw.server || "https://ntfy.sh").trim(),
+      topic: String(raw.topic || "").trim(),
+      token: String(raw.token || "").trim(),
+      clickBaseUrl: String(raw.clickBaseUrl || "").trim(),
+      configPath,
+    };
+  } catch (error) {
+    throw new Error(`Phone notification config is invalid: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function sendNtfyNotification(config, payload) {
+  const topic = String(config.topic || "").trim();
+  if (!topic) {
+    throw new Error("ntfy topic is missing");
+  }
+
+  const server = String(config.server || "https://ntfy.sh").replace(/\/+$/, "");
+  const message = String(payload.message || "").trim();
+  if (!message) {
+    throw new Error("notification message is missing");
+  }
+
+  const headers = {
+    "Content-Type": "text/plain; charset=utf-8",
+  };
+
+  const title = String(payload.title || "").trim();
+  if (title) {
+    headers.Title = title;
+  }
+
+  const priority = String(payload.priority || "default").trim();
+  if (priority) {
+    headers.Priority = priority;
+  }
+
+  const tags = Array.isArray(payload.tags) ? payload.tags.filter(Boolean).join(",") : String(payload.tags || "").trim();
+  if (tags) {
+    headers.Tags = tags;
+  }
+
+  const click = String(payload.click || "").trim();
+  if (click) {
+    headers.Click = click;
+  }
+
+  if (config.token) {
+    headers.Authorization = `Bearer ${config.token}`;
+  }
+
+  const response = await fetch(`${server}/${encodeURIComponent(topic)}`, {
+    method: "POST",
+    headers,
+    body: message,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`ntfy returned ${response.status}${text ? `: ${text}` : ""}`);
+  }
+
+  return {
+    ok: true,
+    provider: "ntfy",
+    topic,
+    server,
+  };
+}
+
+async function sendPhoneNotification(payload) {
+  const config = loadPhoneNotificationConfig();
+  if (!config.enabled) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "Phone notifications are not enabled",
+      configPath: config.configPath,
+    };
+  }
+
+  if (config.provider !== "ntfy") {
+    throw new Error(`Unsupported phone notification provider: ${config.provider}`);
+  }
+
+  const click =
+    String(payload.click || "").trim() ||
+    (config.clickBaseUrl && payload.itemKey ? `${config.clickBaseUrl.replace(/\/+$/, "")}/?headline=${encodeURIComponent(payload.itemKey)}` : "");
+
+  const result = await sendNtfyNotification(config, {
+    ...payload,
+    click,
+  });
+
+  return {
+    ...result,
+    configPath: config.configPath,
+  };
 }
 
 function createAppServer({ port = Number(process.env.PORT || 3180) } = {}) {
@@ -181,6 +349,24 @@ function createAppServer({ port = Number(process.env.PORT || 3180) } = {}) {
             ok: true,
             status: newsService.getStatus(watchlist),
           });
+        })
+        .catch((error) => {
+          sendJson(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/phone/notify" && req.method === "POST") {
+      readRequestBody(req)
+        .then((body) => {
+          const payload = body ? JSON.parse(body) : {};
+          return sendPhoneNotification(payload);
+        })
+        .then((result) => {
+          sendJson(res, 200, result);
         })
         .catch((error) => {
           sendJson(res, 500, {

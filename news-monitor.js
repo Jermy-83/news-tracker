@@ -1,5 +1,7 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
+const { CTraderConnection } = require("@reiryoku/ctrader-layer");
 
 const DEFAULT_POLL_MS = Number(process.env.NEWS_POLL_MS || 5_000);
 const MAX_ITEMS = 400;
@@ -32,6 +34,11 @@ const WATCHLISTS = {
         id: "cnbc-markets",
         label: "CNBC Markets",
         url: "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      },
+      {
+        id: "moomoo-search",
+        label: "Moomoo / Futu Search",
+        url: "https://news.google.com/rss/search?q=%28moomoo+OR+Futu+OR+Futubull%29+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "marketwatch-top",
@@ -123,6 +130,11 @@ const WATCHLISTS = {
         id: "cnbc-markets",
         label: "CNBC Markets",
         url: "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      },
+      {
+        id: "moomoo-search",
+        label: "Moomoo / Futu Search",
+        url: "https://news.google.com/rss/search?q=%28moomoo+OR+Futu+OR+Futubull%29+when:12h+-analysis+-opinion+-forecast&hl=en-US&gl=US&ceid=US:en",
       },
       {
         id: "marketwatch-top",
@@ -288,8 +300,8 @@ const MARKET_REACTION_SYMBOLS = [
     symbol: "XAU",
     role: "live quote",
     format: "price",
-    source: "goldproxy",
-    sourceLabel: "Yahoo Gold futures",
+    source: "ctrader",
+    sourceLabel: "cTrader XAUUSD",
   },
   { id: "dxy", label: "DXY", symbol: "DX-Y.NYB", role: "dollar driver", format: "price", visible: false },
   { id: "us10y", label: "US10Y", symbol: "^TNX", role: "yield driver", format: "yield", visible: false },
@@ -310,6 +322,99 @@ let marketReactionCache = {
   fetchedAt: 0,
   payload: null,
 };
+
+let cTraderQuoteCache = {
+  configKey: "",
+  connection: null,
+  readyPromise: null,
+  heartbeatHandle: null,
+  eventListenerId: "",
+  accountId: 0,
+  live: true,
+  symbolId: 0,
+  symbolName: "",
+  digits: 2,
+  quote: null,
+  quotePromise: null,
+  lastError: "",
+};
+
+function cTraderQuoteSnapshotCandidates() {
+  const candidates = [];
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  const execDir = process.execPath ? path.dirname(process.execPath) : "";
+  const cwdDir = process.cwd();
+  const appDataDir = process.env.APPDATA ? path.join(process.env.APPDATA, "Market Intelligence Desk") : "";
+  const homeConfigDir = path.join(os.homedir(), ".market-intelligence-desk");
+
+  if (portableDir) {
+    candidates.push(path.join(portableDir, "ctrader-last-quote.json"));
+  }
+  if (execDir) {
+    candidates.push(path.join(execDir, "ctrader-last-quote.json"));
+  }
+  if (cwdDir) {
+    candidates.push(path.join(cwdDir, "ctrader-last-quote.json"));
+  }
+  if (appDataDir) {
+    candidates.push(path.join(appDataDir, "ctrader-last-quote.json"));
+  }
+  candidates.push(path.join(homeConfigDir, "ctrader-last-quote.json"));
+
+  return uniq(candidates.filter(Boolean));
+}
+
+function loadSavedCTraderQuote() {
+  const snapshotPath = cTraderQuoteSnapshotCandidates().find((candidate) => fs.existsSync(candidate));
+  if (!snapshotPath) {
+    return null;
+  }
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
+    const bid = Number(raw.bid);
+    const ask = Number(raw.ask);
+    const sessionClose = Number(raw.sessionClose);
+    const timestamp = Number(raw.timestamp || 0);
+    const updatedAt = String(raw.updatedAt || "").trim();
+    if (!Number.isFinite(bid) || !Number.isFinite(ask) || !updatedAt) {
+      return null;
+    }
+
+    return {
+      bid,
+      ask,
+      sessionClose: Number.isFinite(sessionClose) ? sessionClose : 0,
+      timestamp,
+      updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveCTraderQuoteSnapshot(quote) {
+  const payload = {
+    bid: Number(quote?.bid),
+    ask: Number(quote?.ask),
+    sessionClose: Number(quote?.sessionClose),
+    timestamp: Number(quote?.timestamp || 0),
+    updatedAt: String(quote?.updatedAt || "").trim(),
+  };
+  if (!Number.isFinite(payload.bid) || !Number.isFinite(payload.ask) || !payload.updatedAt) {
+    return;
+  }
+
+  const destination = cTraderQuoteSnapshotCandidates()[0];
+  if (!destination) {
+    return;
+  }
+
+  try {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, JSON.stringify(payload, null, 2));
+  } catch {}
+}
 
 let goldVolatilityCache = {
   fetchedAt: 0,
@@ -2649,6 +2754,326 @@ function goldApiSpotUrl(symbol) {
   return `https://api.gold-api.com/price/${encodeURIComponent(symbol)}`;
 }
 
+function cTraderConfigCandidates() {
+  const candidates = [];
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  const execDir = process.execPath ? path.dirname(process.execPath) : "";
+  const cwdDir = process.cwd();
+  const appDataDir = process.env.APPDATA ? path.join(process.env.APPDATA, "Market Intelligence Desk") : "";
+  const homeConfigDir = path.join(os.homedir(), ".market-intelligence-desk");
+
+  if (portableDir) {
+    candidates.push(path.join(portableDir, "ctrader-openapi.json"));
+  }
+  if (execDir) {
+    candidates.push(path.join(execDir, "ctrader-openapi.json"));
+  }
+  if (cwdDir) {
+    candidates.push(path.join(cwdDir, "ctrader-openapi.json"));
+  }
+  if (appDataDir) {
+    candidates.push(path.join(appDataDir, "ctrader-openapi.json"));
+  }
+  candidates.push(path.join(homeConfigDir, "ctrader-openapi.json"));
+
+  return uniq(candidates.filter(Boolean));
+}
+
+function loadCTraderConfig() {
+  const envAccessToken = String(process.env.CTRADER_ACCESS_TOKEN || "").trim();
+  const envClientId = String(process.env.CTRADER_CLIENT_ID || "").trim();
+  const envClientSecret = String(process.env.CTRADER_CLIENT_SECRET || "").trim();
+  const envAccountId = Number(process.env.CTRADER_ACCOUNT_ID || 0);
+  if (envAccessToken && envClientId && envClientSecret) {
+    return {
+      enabled: true,
+      source: "environment",
+      clientId: envClientId,
+      clientSecret: envClientSecret,
+      accessToken: envAccessToken,
+      accountId: Number.isFinite(envAccountId) && envAccountId > 0 ? envAccountId : 0,
+      live: String(process.env.CTRADER_ENVIRONMENT || "live").toLowerCase() !== "demo",
+      host: String(process.env.CTRADER_HOST || "").trim(),
+      port: Number(process.env.CTRADER_PORT || 5035),
+      symbolName: String(process.env.CTRADER_SYMBOL || "XAUUSD").trim(),
+    };
+  }
+
+  const configPath = cTraderConfigCandidates().find((candidate) => fs.existsSync(candidate));
+  if (!configPath) {
+    return {
+      enabled: false,
+      source: "",
+    };
+  }
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return {
+      enabled: raw.enabled !== false,
+      source: configPath,
+      clientId: String(raw.clientId || "").trim(),
+      clientSecret: String(raw.clientSecret || "").trim(),
+      accessToken: String(raw.accessToken || "").trim(),
+      accountId: Number(raw.accountId || 0),
+      live: raw.live !== false,
+      host: String(raw.host || "").trim(),
+      port: Number(raw.port || 5035),
+      symbolName: String(raw.symbolName || "XAUUSD").trim(),
+    };
+  } catch (error) {
+    return {
+      enabled: false,
+      source: configPath,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function cTraderConfigKey(config) {
+  return JSON.stringify({
+    clientId: config.clientId,
+    accountId: config.accountId,
+    live: config.live,
+    host: config.host,
+    port: config.port,
+    symbolName: config.symbolName,
+  });
+}
+
+function cTraderHost(config) {
+  if (config.host) {
+    return config.host;
+  }
+  return config.live ? "live.ctraderapi.com" : "demo.ctraderapi.com";
+}
+
+function normalizeCTraderSpotValue(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric / 100000 : Number.NaN;
+}
+
+function findCTraderSymbolId(symbols, preferredName) {
+  const list = Array.isArray(symbols) ? symbols : [];
+  const target = String(preferredName || "XAUUSD").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const exact = list.find((item) => String(item.symbolName || "").toUpperCase().replace(/[^A-Z0-9]/g, "") === target);
+  if (exact) {
+    return exact;
+  }
+  return (
+    list.find((item) => /XAUUSD|XAU\/USD|GOLD/i.test(String(item.symbolName || ""))) ||
+    null
+  );
+}
+
+async function resolveCTraderAccountMeta(config) {
+  if (Number.isFinite(config.accountId) && config.accountId > 0) {
+    return {
+      accountId: Number(config.accountId),
+      live: config.live,
+    };
+  }
+
+  const accounts = await CTraderConnection.getAccessTokenAccounts(config.accessToken);
+  const preferred = Array.isArray(accounts)
+    ? accounts.find((account) => Boolean(account?.isLive) === Boolean(config.live))
+    : null;
+  const fallback = Array.isArray(accounts) ? accounts[0] : null;
+  const account = preferred || fallback;
+  if (!account?.ctidTraderAccountId) {
+    throw new Error("No cTrader trading account was returned for the access token");
+  }
+
+  return {
+    accountId: Number(account.ctidTraderAccountId),
+    live: Boolean(account.isLive),
+  };
+}
+
+async function connectCTraderFeed(config) {
+  const accountMeta = await resolveCTraderAccountMeta(config);
+  const connection = new CTraderConnection({
+    host: cTraderHost({ ...config, live: accountMeta.live }),
+    port: Number(config.port || 5035),
+  });
+
+  await connection.open();
+  await connection.sendCommand("ProtoOAApplicationAuthReq", {
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+  });
+  await connection.sendCommand("ProtoOAAccountAuthReq", {
+    ctidTraderAccountId: accountMeta.accountId,
+    accessToken: config.accessToken,
+  });
+
+  const symbolsResponse = await connection.sendCommand("ProtoOASymbolsListReq", {
+    ctidTraderAccountId: accountMeta.accountId,
+    includeArchivedSymbols: false,
+  });
+  const matchedSymbol = findCTraderSymbolId(symbolsResponse.symbol, config.symbolName);
+  if (!matchedSymbol?.symbolId) {
+    throw new Error(`Unable to find cTrader symbol ${config.symbolName || "XAUUSD"} on this account`);
+  }
+
+  const fullSymbolResponse = await connection.sendCommand("ProtoOASymbolByIdReq", {
+    ctidTraderAccountId: accountMeta.accountId,
+    symbolId: [matchedSymbol.symbolId],
+  });
+  const fullSymbol = Array.isArray(fullSymbolResponse.symbol) ? fullSymbolResponse.symbol[0] : null;
+
+  cTraderQuoteCache.connection = connection;
+  cTraderQuoteCache.accountId = accountMeta.accountId;
+  cTraderQuoteCache.live = accountMeta.live;
+  cTraderQuoteCache.symbolId = Number(matchedSymbol.symbolId);
+  cTraderQuoteCache.symbolName = String(matchedSymbol.symbolName || config.symbolName || "XAUUSD");
+  cTraderQuoteCache.digits = Number(fullSymbol?.digits || 2);
+  cTraderQuoteCache.quote = null;
+  cTraderQuoteCache.quotePromise = null;
+  cTraderQuoteCache.lastError = "";
+
+  cTraderQuoteCache.eventListenerId = connection.on("ProtoOASpotEvent", (event) => {
+    if (Number(event?.symbolId) !== cTraderQuoteCache.symbolId) {
+      return;
+    }
+
+    cTraderQuoteCache.quote = {
+      bid: normalizeCTraderSpotValue(event.bid),
+      ask: normalizeCTraderSpotValue(event.ask),
+      sessionClose: normalizeCTraderSpotValue(event.sessionClose),
+      timestamp: Number(event.timestamp || 0),
+      updatedAt: event.timestamp ? new Date(Number(event.timestamp)).toISOString() : new Date().toISOString(),
+    };
+    saveCTraderQuoteSnapshot(cTraderQuoteCache.quote);
+  });
+
+  await connection.sendCommand("ProtoOASubscribeSpotsReq", {
+    ctidTraderAccountId: accountMeta.accountId,
+    symbolId: [cTraderQuoteCache.symbolId],
+    subscribeToSpotTimestamp: true,
+  });
+
+  cTraderQuoteCache.heartbeatHandle = setInterval(() => {
+    connection.sendHeartbeat();
+  }, 25000);
+
+  return connection;
+}
+
+async function ensureCTraderFeedReady() {
+  const config = loadCTraderConfig();
+  if (!config.enabled) {
+    throw new Error("cTrader source is not configured");
+  }
+  if (!config.clientId || !config.clientSecret || !config.accessToken) {
+    throw new Error("cTrader config is missing clientId, clientSecret, or accessToken");
+  }
+
+  const configKey = cTraderConfigKey(config);
+  if (cTraderQuoteCache.connection && cTraderQuoteCache.configKey === configKey) {
+    return cTraderQuoteCache.connection;
+  }
+
+  if (cTraderQuoteCache.readyPromise && cTraderQuoteCache.configKey === configKey) {
+    return cTraderQuoteCache.readyPromise;
+  }
+
+  if (cTraderQuoteCache.heartbeatHandle) {
+    clearInterval(cTraderQuoteCache.heartbeatHandle);
+    cTraderQuoteCache.heartbeatHandle = null;
+  }
+  if (cTraderQuoteCache.connection) {
+    try {
+      cTraderQuoteCache.connection.close();
+    } catch {}
+  }
+
+  cTraderQuoteCache.configKey = configKey;
+  cTraderQuoteCache.readyPromise = connectCTraderFeed(config)
+    .catch((error) => {
+      cTraderQuoteCache.lastError = error instanceof Error ? error.message : String(error);
+      throw error;
+    })
+    .finally(() => {
+      cTraderQuoteCache.readyPromise = null;
+    });
+
+  return cTraderQuoteCache.readyPromise;
+}
+
+async function fetchCTraderSpotInstrument(instrument) {
+  try {
+    await ensureCTraderFeedReady();
+  } catch (error) {
+    const savedQuote = loadSavedCTraderQuote();
+    const session = goldMarketSessionMeta();
+    if (!session.open && savedQuote) {
+      cTraderQuoteCache.quote = savedQuote;
+      cTraderQuoteCache.lastError = error instanceof Error ? error.message : String(error);
+    } else {
+      throw error;
+    }
+  }
+
+  if (!cTraderQuoteCache.quote) {
+    cTraderQuoteCache.quotePromise =
+      cTraderQuoteCache.quotePromise ||
+      new Promise((resolve, reject) => {
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+          if (cTraderQuoteCache.quote) {
+            clearInterval(timer);
+            resolve(cTraderQuoteCache.quote);
+            return;
+          }
+
+          if (Date.now() - startedAt > 5000) {
+            clearInterval(timer);
+            reject(new Error("Timed out waiting for the first cTrader spot event"));
+          }
+        }, 100);
+      }).finally(() => {
+        cTraderQuoteCache.quotePromise = null;
+      });
+
+    await cTraderQuoteCache.quotePromise;
+  }
+
+  const quote = cTraderQuoteCache.quote;
+  if (!quote) {
+    throw new Error("cTrader quote is unavailable");
+  }
+
+  const bid = Number(quote.bid);
+  const ask = Number(quote.ask);
+  const latest = Number.isFinite(bid) && Number.isFinite(ask) ? (bid + ask) / 2 : Number.isFinite(bid) ? bid : ask;
+  const previousClose = Number.isFinite(quote.sessionClose) && quote.sessionClose > 0 ? Number(quote.sessionClose) : latest;
+  if (!Number.isFinite(latest) || latest <= 0) {
+    throw new Error("cTrader returned an invalid XAUUSD quote");
+  }
+
+  const dayChange = latest - previousClose;
+  const dayChangePercent = previousClose ? (dayChange / previousClose) * 100 : 0;
+
+  return {
+    ...instrument,
+    name: cTraderQuoteCache.symbolName || "XAUUSD",
+    symbol: cTraderQuoteCache.symbolName || instrument.symbol,
+    price: latest,
+    bid,
+    ask,
+    previousClose,
+    dayChange,
+    dayChangePercent,
+    intradayChange: dayChange,
+    intradayChangePercent: dayChangePercent,
+    updatedAt: quote.updatedAt || new Date().toISOString(),
+    sourceLabel: `cTrader ${cTraderQuoteCache.live ? "live" : "demo"} spot`,
+    digits: cTraderQuoteCache.digits,
+    stale: goldMarketSessionMeta().open === false,
+  };
+}
+
 function latestFinite(values) {
   for (let index = values.length - 1; index >= 0; index -= 1) {
     const value = Number(values[index]);
@@ -2661,11 +3086,19 @@ function latestFinite(values) {
 }
 
 async function fetchMarketInstrument(instrument) {
+  if (instrument.source === "ctrader") {
+    return fetchCTraderSpotInstrument(instrument);
+  }
+
   if (instrument.source === "goldapi") {
     try {
       return await fetchGoldApiSpotInstrument(instrument);
     } catch {
-      return fetchYahooGoldProxyInstrument(instrument);
+      try {
+        return await fetchVangSpotInstrument({ ...instrument, source: "vang" });
+      } catch {
+        return fetchYahooGoldProxyInstrument(instrument);
+      }
     }
   }
 
@@ -2926,11 +3359,12 @@ function marketInstrumentLabel(item) {
     return `${item.price.toFixed(3)}%`;
   }
 
+  const digits = Number.isFinite(Number(item.digits)) ? Math.max(2, Number(item.digits)) : 2;
   if (item.price >= 1000) {
-    return item.price.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    return item.price.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
   }
 
-  return item.price.toFixed(2);
+  return item.price.toFixed(digits);
 }
 
 function marketMoveLabel(item) {
@@ -3102,6 +3536,75 @@ async function fetchGoldPastHourMove() {
     direction: classifyHeadlineMove(move),
     displayChange: goldHourMoveLabel(move),
     summary: `From ${baseline.close.toFixed(2)} to ${latest.close.toFixed(2)} using recent 5-minute gold futures data.`,
+  };
+}
+
+async function fetchGoldIntervalRange(startIso, endIso) {
+  const startTime = Date.parse(startIso || 0);
+  const endTime = Date.parse(endIso || 0);
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    return null;
+  }
+
+  const response = await fetch(yahooChartRangeUrl("GC=F", "1d", "5m"), {
+    headers: {
+      "User-Agent": "MarketIntelligenceDesk/1.0",
+      Accept: "application/json,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gold interval range failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const quote = result?.indicators?.quote?.[0] || {};
+  const highValues = Array.isArray(quote.high) ? quote.high : [];
+  const lowValues = Array.isArray(quote.low) ? quote.low : [];
+  const closeValues = Array.isArray(quote.close) ? quote.close : [];
+
+  const points = timestamps
+    .map((timestamp, index) => ({
+      time: Number(timestamp) * 1000,
+      high: Number(highValues[index]),
+      low: Number(lowValues[index]),
+      close: Number(closeValues[index]),
+    }))
+    .filter(
+      (point) =>
+        Number.isFinite(point.time) &&
+        point.time >= startTime &&
+        point.time <= endTime &&
+        (Number.isFinite(point.high) || Number.isFinite(point.low) || Number.isFinite(point.close))
+    );
+
+  if (!points.length) {
+    return null;
+  }
+
+  let actualHigh = Number.NEGATIVE_INFINITY;
+  let actualLow = Number.POSITIVE_INFINITY;
+  points.forEach((point) => {
+    const high = Number.isFinite(point.high) ? point.high : point.close;
+    const low = Number.isFinite(point.low) ? point.low : point.close;
+    if (Number.isFinite(high)) {
+      actualHigh = Math.max(actualHigh, high);
+    }
+    if (Number.isFinite(low)) {
+      actualLow = Math.min(actualLow, low);
+    }
+  });
+
+  if (!Number.isFinite(actualHigh) || !Number.isFinite(actualLow)) {
+    return null;
+  }
+
+  return {
+    actualHigh: roundToNearestTenth(actualHigh),
+    actualLow: roundToNearestTenth(actualLow),
+    actualRange: roundToNearestTenth(actualHigh - actualLow),
   };
 }
 
@@ -3677,7 +4180,7 @@ async function getMarketReaction(watchlist) {
     generatedAt: new Date().toISOString(),
     watchlistId: watchlist?.id || "xauusd",
     watchlistLabel: watchlist?.label || "XAUUSD",
-    sourceLabel: items[0]?.sourceLabel || "Gold-API XAU spot",
+    sourceLabel: items.find((item) => item.id === "xauusd" || item.role === "live quote")?.sourceLabel || "cTrader live spot",
     marketSession: session,
     reaction,
     marketRegime: buildMarketRegime(items),
@@ -4300,6 +4803,54 @@ function roundToNearestFive(value) {
   return Math.round(Number(value || 0) / 5) * 5;
 }
 
+function roundToNearestTenth(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function projectGoldExtremes({ price, directionValue, support, resistance, volatilityCap, move30, rangePosition, feedbackModel }) {
+  const baseSwing = Math.max(3.5, Math.min(Number(volatilityCap) || 8, Math.max(Math.abs(Number(move30) || 0) * 0.85, 6)));
+  let projectedHigh = price + baseSwing;
+  let projectedLow = price - baseSwing;
+
+  if (directionValue > 0) {
+    projectedHigh = price + baseSwing * 1.15;
+    projectedLow = price - Math.max(2.5, baseSwing * 0.45);
+  } else if (directionValue < 0) {
+    projectedHigh = price + Math.max(2.5, baseSwing * 0.45);
+    projectedLow = price - baseSwing * 1.15;
+  }
+
+  if (feedbackModel?.preferFlat) {
+    projectedHigh = price + baseSwing * 0.82;
+    projectedLow = price - baseSwing * 0.82;
+  }
+
+  if (Number.isFinite(support)) {
+    projectedLow = Math.max(projectedLow, support - 1.5);
+  }
+  if (Number.isFinite(resistance)) {
+    projectedHigh = Math.min(projectedHigh, resistance + 1.5);
+  }
+
+  if (Number.isFinite(rangePosition) && rangePosition >= 0.82) {
+    projectedHigh = Math.min(projectedHigh, price + baseSwing * 0.8);
+  }
+  if (Number.isFinite(rangePosition) && rangePosition <= 0.18) {
+    projectedLow = Math.max(projectedLow, price - baseSwing * 0.8);
+  }
+
+  if (projectedLow > projectedHigh) {
+    const midpoint = price;
+    projectedHigh = midpoint + 2.5;
+    projectedLow = midpoint - 2.5;
+  }
+
+  return {
+    projectedHigh: roundToNearestTenth(projectedHigh),
+    projectedLow: roundToNearestTenth(projectedLow),
+  };
+}
+
 function buildGoldProjection(marketPayload, newsItems, volatility = null, feedback = null) {
   const marketItem = Array.isArray(marketPayload?.items) ? marketPayload.items[0] : null;
   const price = Number(marketItem?.price);
@@ -4384,6 +4935,16 @@ function buildGoldProjection(marketPayload, newsItems, volatility = null, feedba
           84
         )
       : clamp(35 - Math.round(feedbackModel.averageAbsoluteError * 0.2), 24, 40);
+  const projectedExtremes = projectGoldExtremes({
+    price,
+    directionValue: adjustedDirection,
+    support,
+    resistance,
+    volatilityCap: maxDistance,
+    move30,
+    rangePosition,
+    feedbackModel,
+  });
 
   return {
     basePrice: Number(price.toFixed(2)),
@@ -4391,6 +4952,8 @@ function buildGoldProjection(marketPayload, newsItems, volatility = null, feedba
     target,
     low,
     high,
+    projectedHigh: projectedExtremes.projectedHigh,
+    projectedLow: projectedExtremes.projectedLow,
     confidence,
     reason: `${agreement}/3 signals agreed: price ${move}, regime ${regimeTone}, news ${bias}`,
     signal: {
@@ -4415,7 +4978,7 @@ function buildGoldProjection(marketPayload, newsItems, volatility = null, feedba
   };
 }
 
-function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility = null) {
+async function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility = null) {
   const marketItem = Array.isArray(marketPayload?.items) ? marketPayload.items[0] : null;
   const actualPrice = Number(marketItem?.price);
   if (!Number.isFinite(actualPrice) || actualPrice <= 0) {
@@ -4430,14 +4993,14 @@ function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility
   const feedback = estimateFeedback(entries);
   let changed = false;
 
-  entries.forEach((entry) => {
+  for (const entry of entries) {
     if (entry?.actualAt || !entry?.targetHourKey) {
-      return;
+      continue;
     }
 
     const targetTime = Date.parse(entry.targetHourKey);
     if (!Number.isFinite(targetTime) || now.getTime() < targetTime) {
-      return;
+      continue;
     }
 
     const error = Number((actualPrice - Number(entry.target)).toFixed(2));
@@ -4447,6 +5010,12 @@ function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility
         : entry.direction === "up"
           ? actualPrice > Number(entry.basePrice)
           : actualPrice < Number(entry.basePrice);
+    let actualIntervalRange = null;
+    try {
+      actualIntervalRange = await fetchGoldIntervalRange(entry.hourKey, entry.targetHourKey);
+    } catch {
+      actualIntervalRange = null;
+    }
 
     entry.actualAt = now.toISOString();
     entry.actualPrice = Number(actualPrice.toFixed(2));
@@ -4454,8 +5023,20 @@ function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility
     entry.absoluteError = Math.abs(error);
     entry.directionHit = directionHit;
     entry.zoneHit = actualPrice >= Number(entry.low) && actualPrice <= Number(entry.high);
+    entry.actualHigh = Number.isFinite(Number(actualIntervalRange?.actualHigh)) ? Number(actualIntervalRange.actualHigh) : null;
+    entry.actualLow = Number.isFinite(Number(actualIntervalRange?.actualLow)) ? Number(actualIntervalRange.actualLow) : null;
+    entry.actualRange = Number.isFinite(Number(actualIntervalRange?.actualRange)) ? Number(actualIntervalRange.actualRange) : null;
+    entry.highHit =
+      Number.isFinite(Number(entry.projectedHigh)) && Number.isFinite(Number(entry.actualHigh))
+        ? Number(entry.actualHigh) <= Number(entry.projectedHigh)
+        : null;
+    entry.lowHit =
+      Number.isFinite(Number(entry.projectedLow)) && Number.isFinite(Number(entry.actualLow))
+        ? Number(entry.actualLow) >= Number(entry.projectedLow)
+        : null;
+    entry.extremesHit = entry.highHit === true && entry.lowHit === true;
     changed = true;
-  });
+  }
 
   if (
     marketOpen &&
@@ -4475,6 +5056,12 @@ function updateGoldEstimateLog(watchlistId, marketPayload, newsItems, volatility
         absoluteError: null,
         directionHit: null,
         zoneHit: null,
+        actualHigh: null,
+        actualLow: null,
+        actualRange: null,
+        highHit: null,
+        lowHit: null,
+        extremesHit: null,
       });
       changed = true;
     }
@@ -4955,7 +5542,7 @@ class NewsService {
       sourceMode: "all",
       tradingMode: "all",
     });
-    const estimateAudit = updateGoldEstimateLog(monitor.watchlist.id, reaction, recentItems, volatility);
+    const estimateAudit = await updateGoldEstimateLog(monitor.watchlist.id, reaction, recentItems, volatility);
     return {
       ...reaction,
       estimateAudit,

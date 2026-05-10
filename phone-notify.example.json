@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "provider": "ntfy",
+  "server": "https://ntfy.sh",
+  "topic": "replace-this-with-a-long-secret-topic",
+  "token": "",
+  "clickBaseUrl": ""
+}

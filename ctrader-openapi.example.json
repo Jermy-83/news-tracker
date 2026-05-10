@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "clientId": "your-ctrader-openapi-client-id",
+  "clientSecret": "your-ctrader-openapi-client-secret",
+  "accessToken": "your-ctrader-openapi-access-token",
+  "accountId": 0,
+  "live": true,
+  "host": "",
+  "port": 5035,
+  "symbolName": "XAUUSD"
+}

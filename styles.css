@@ -27,26 +27,26 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #eff3f9;
-  --bg-2: #f7f9fd;
-  --surface: rgba(255, 255, 255, 0.76);
-  --surface-2: rgba(255, 255, 255, 0.9);
-  --surface-3: rgba(248, 251, 255, 0.96);
-  --line: rgba(132, 154, 184, 0.18);
-  --line-strong: rgba(99, 126, 162, 0.34);
-  --text: #101826;
-  --muted: #6a778b;
-  --muted-strong: #314055;
+  --bg: #eef2f7;
+  --bg-2: #f6f9fd;
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-2: rgba(252, 254, 255, 0.94);
+  --surface-3: rgba(246, 250, 255, 0.98);
+  --line: rgba(106, 129, 164, 0.24);
+  --line-strong: rgba(86, 112, 150, 0.42);
+  --text: #142033;
+  --muted: #617089;
+  --muted-strong: #2b3d57;
   --accent: #2f7cf6;
   --accent-2: #0f63e8;
-  --accent-soft: rgba(47, 124, 246, 0.1);
+  --accent-soft: rgba(47, 124, 246, 0.12);
   --bull: #0f9d76;
-  --bull-soft: rgba(15, 157, 118, 0.11);
+  --bull-soft: rgba(15, 157, 118, 0.13);
   --bear: #dd4a68;
-  --bear-soft: rgba(221, 74, 104, 0.12);
-  --wait: #7b8798;
-  --shadow: 0 24px 80px rgba(123, 144, 176, 0.18);
-  --shadow-soft: 0 10px 28px rgba(126, 146, 178, 0.14);
+  --bear-soft: rgba(221, 74, 104, 0.14);
+  --wait: #728096;
+  --shadow: 0 22px 68px rgba(110, 132, 164, 0.16);
+  --shadow-soft: 0 12px 30px rgba(110, 132, 164, 0.12);
 }
 
 * {
@@ -73,10 +73,10 @@ body {
 
 :root[data-theme="light"] body {
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), transparent 28rem),
-    radial-gradient(circle at top right, rgba(112, 168, 255, 0.18), transparent 24rem),
-    radial-gradient(circle at 20% 100%, rgba(255, 196, 162, 0.24), transparent 30rem),
-    linear-gradient(180deg, #f8fbff 0%, #eef3f9 46%, #e7edf6 100%);
+    radial-gradient(circle at 10% 0%, rgba(132, 180, 255, 0.18), transparent 24rem),
+    radial-gradient(circle at 92% 10%, rgba(126, 224, 196, 0.12), transparent 22rem),
+    radial-gradient(circle at 22% 100%, rgba(255, 193, 161, 0.16), transparent 26rem),
+    linear-gradient(180deg, #f7faff 0%, #edf2f8 44%, #e8eef6 100%);
 }
 
 button,
@@ -105,9 +105,9 @@ input {
 
 :root[data-theme="light"] .siteBackdrop {
   background:
-    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.6), transparent 18rem),
-    radial-gradient(circle at 82% 8%, rgba(47, 124, 246, 0.08), transparent 22rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(188, 205, 226, 0.1));
+    radial-gradient(circle at 14% 8%, rgba(90, 162, 255, 0.12), transparent 18rem),
+    radial-gradient(circle at 82% 8%, rgba(255, 255, 255, 0.28), transparent 20rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(176, 196, 223, 0.12));
 }
 
 .siteShell {
@@ -331,9 +331,9 @@ input {
 :root[data-theme="light"] .catalystSourceChip,
 :root[data-theme="light"] .sourceQualityChip,
 :root[data-theme="light"] .catalystValues span {
-  border: 1px solid rgba(151, 173, 203, 0.36);
-  background: rgba(255, 255, 255, 0.68);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(123, 149, 186, 0.48);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 246, 254, 0.86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .soundToggle {
@@ -514,11 +514,11 @@ option {
 :root[data-theme="light"] .scoreBadge,
 :root[data-theme="light"] .tradeChecklistVerdict,
 :root[data-theme="light"] .tradeStep {
-  border: 1px solid rgba(144, 167, 199, 0.48);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(242, 247, 255, 0.8));
+  border: 1px solid rgba(122, 148, 186, 0.44);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 254, 0.88));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 10px 24px rgba(123, 146, 179, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 10px 22px rgba(118, 140, 171, 0.08);
 }
 
 :root[data-theme="light"] .deskRibbon,
@@ -528,12 +528,12 @@ option {
 
 :root[data-theme="light"] .field {
   padding: 12px 14px 13px;
-  border: 1px solid rgba(144, 167, 199, 0.44);
+  border: 1px solid rgba(122, 148, 186, 0.42);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 255, 0.84));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 254, 0.9));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 10px 22px rgba(123, 146, 179, 0.07);
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 8px 18px rgba(118, 140, 171, 0.07);
 }
 
 :root[data-theme="light"] .deskRibbonCard,
@@ -544,10 +544,10 @@ option {
 }
 
 :root[data-theme="light"] .controlDeck {
-  border: 1px solid rgba(177, 194, 220, 0.62);
+  border: 1px solid rgba(151, 175, 209, 0.5);
   box-shadow:
-    0 16px 32px rgba(126, 146, 178, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.76);
+    0 16px 32px rgba(126, 146, 178, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .deskRibbonCard strong,
@@ -788,9 +788,11 @@ option {
 }
 
 :root[data-theme="light"] .newsListItem {
-  border: 1px solid rgba(255, 255, 255, 0.74);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.72));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(122, 148, 186, 0.38);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(242, 247, 255, 0.86));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 8px 18px rgba(118, 140, 171, 0.06);
 }
 
 .newsListItem:hover {
@@ -798,7 +800,7 @@ option {
 }
 
 :root[data-theme="light"] .newsListItem:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(239, 245, 255, 0.82));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(236, 244, 255, 0.9));
 }
 
 .newsListItem.active {
@@ -808,8 +810,9 @@ option {
 }
 
 :root[data-theme="light"] .newsListItem.active {
-  background: linear-gradient(180deg, rgba(244, 249, 255, 0.96), rgba(231, 240, 255, 0.88));
-  box-shadow: 0 0 0 1px rgba(47, 124, 246, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-color: rgba(78, 121, 186, 0.5);
+  background: linear-gradient(180deg, rgba(241, 247, 255, 0.98), rgba(228, 238, 255, 0.9));
+  box-shadow: 0 0 0 1px rgba(47, 124, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .newsListItemTop {
@@ -1095,13 +1098,15 @@ option {
 .newsPriceReaction.loading,
 .newsPriceReaction.mixed {
   border-color: rgba(47, 124, 246, 0.18);
-  background: rgba(236, 243, 255, 0.92);
-  color: var(--accent-2);
+  background: rgba(26, 39, 58, 0.82);
+  color: #d7e4f5;
 }
 
 :root[data-theme="light"] .newsPriceReaction.loading,
 :root[data-theme="light"] .newsPriceReaction.mixed {
-  background: rgba(236, 243, 255, 0.92);
+  border-color: rgba(122, 148, 186, 0.34);
+  background: linear-gradient(180deg, rgba(244, 249, 255, 0.96), rgba(233, 241, 252, 0.9));
+  color: #36506d;
 }
 
 .newsPriceReaction.bearish,
@@ -1197,6 +1202,12 @@ option {
   gap: 6px;
 }
 
+.marketBadgeStack {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
 .marketReactionCard .chartMeta strong {
   font-size: 0.94rem;
 }
@@ -1223,10 +1234,49 @@ option {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.marketSourceBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 :root[data-theme="light"] .marketSessionBadge {
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(125, 149, 183, 0.34);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(241, 246, 254, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+:root[data-theme="light"] .marketSourceBadge {
+  border: 1px solid rgba(125, 149, 183, 0.34);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(241, 246, 254, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.marketSourceBadge.exact {
+  color: #0e7a59;
+  background: rgba(15, 157, 118, 0.1);
+  border-color: rgba(15, 157, 118, 0.2);
+}
+
+.marketSourceBadge.fallback {
+  color: #7e5c17;
+  background: rgba(255, 176, 87, 0.12);
+  border-color: rgba(255, 176, 87, 0.24);
 }
 
 .marketSessionBadge.open {
@@ -1296,7 +1346,8 @@ option {
 }
 
 :root[data-theme="light"] .marketRegime {
-  background: rgba(240, 246, 255, 0.84);
+  border-color: rgba(125, 181, 232, 0.26);
+  background: linear-gradient(180deg, rgba(240, 246, 255, 0.96), rgba(231, 240, 252, 0.88));
   color: #334c69;
 }
 
@@ -1321,7 +1372,8 @@ option {
 }
 
 :root[data-theme="light"] .marketStateStrip {
-  background: rgba(255, 255, 255, 0.48);
+  border-color: rgba(125, 181, 232, 0.2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(241, 246, 254, 0.8));
   color: #4d6784;
 }
 
@@ -1477,12 +1529,16 @@ option {
 }
 
 .marketMoveReason {
-  padding: 0;
+  padding: 12px 13px;
   border-radius: 16px;
   border: 1px solid rgba(47, 124, 246, 0.16);
   background: rgba(25, 38, 57, 0.88);
   color: var(--accent-2);
   overflow: hidden;
+}
+
+.marketMoveReason:has(.reasonTile) {
+  padding: 0;
 }
 
 :root[data-theme="light"] .marketMoveReason {
@@ -2330,6 +2386,135 @@ option {
 
 :root[data-theme="dark"] .goldProjectionResult.pending {
   background: rgba(25, 38, 57, 0.9);
+}
+
+/* Light mode parity pass: keep the same dark-mode structure and hierarchy,
+   but shift it onto denser white surfaces with stronger contrast. */
+:root[data-theme="light"] .panel,
+:root[data-theme="light"] .chartCard,
+:root[data-theme="light"] .controlDeck {
+  border: 1px solid rgba(132, 156, 191, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 249, 255, 0.9)),
+    rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 16px 34px rgba(120, 141, 170, 0.1);
+}
+
+:root[data-theme="light"] .brandMark {
+  border-color: rgba(126, 149, 183, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(236, 243, 253, 0.9)),
+    rgba(255, 255, 255, 0.84);
+}
+
+:root[data-theme="light"] .themeToggleBtn[data-theme="light"],
+:root[data-theme="light"] .pillBtn,
+:root[data-theme="light"] .topbarChip,
+:root[data-theme="light"] .biasPill,
+:root[data-theme="light"] .probabilityPill,
+:root[data-theme="light"] .feedChip,
+:root[data-theme="light"] .tagPill,
+:root[data-theme="light"] .newsReferenceLink,
+:root[data-theme="light"] .catalystSourceChip,
+:root[data-theme="light"] .sourceQualityChip,
+:root[data-theme="light"] .catalystValues span {
+  border-color: rgba(122, 148, 186, 0.46);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 246, 254, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="light"] .pillBtn {
+  color: #165fd7;
+}
+
+:root[data-theme="light"] .field,
+:root[data-theme="light"] .deskRibbonCard,
+:root[data-theme="light"] .scoreBadge,
+:root[data-theme="light"] .tradeChecklistVerdict,
+:root[data-theme="light"] .tradeStep,
+:root[data-theme="light"] .newsListItem,
+:root[data-theme="light"] .marketReactionItem,
+:root[data-theme="light"] .marketReactionEmpty,
+:root[data-theme="light"] .catalystItem,
+:root[data-theme="light"] .newsWhy,
+:root[data-theme="light"] .newsPriceReaction,
+:root[data-theme="light"] .catalystSummary,
+:root[data-theme="light"] .catalystMarketRead,
+:root[data-theme="light"] .marketReactionBias,
+:root[data-theme="light"] .marketRegime,
+:root[data-theme="light"] .marketMoveReason,
+:root[data-theme="light"] .goldHourPanel,
+:root[data-theme="light"] .goldSummaryPanel,
+:root[data-theme="light"] .goldProjectionBox,
+:root[data-theme="light"] .goldProjectionResult {
+  border-color: rgba(122, 148, 186, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(241, 247, 255, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 10px 22px rgba(118, 140, 171, 0.07);
+}
+
+:root[data-theme="light"] .newsListItem:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(236, 244, 255, 0.92));
+}
+
+:root[data-theme="light"] .newsListItem.active,
+:root[data-theme="light"] .filterBadge.active {
+  border-color: rgba(77, 120, 186, 0.52);
+  background:
+    linear-gradient(180deg, rgba(241, 247, 255, 0.99), rgba(228, 238, 255, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 0 0 1px rgba(47, 124, 246, 0.12);
+}
+
+:root[data-theme="light"] .marketSessionBadge,
+:root[data-theme="light"] .marketStateStrip {
+  border-color: rgba(122, 148, 186, 0.32);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(241, 247, 255, 0.86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="light"] .marketRegime.bullish,
+:root[data-theme="light"] .marketReactionBias.bullish,
+:root[data-theme="light"] .goldHourPanel.bullish,
+:root[data-theme="light"] .goldSummaryPanel.up {
+  border-color: rgba(85, 190, 156, 0.3);
+  background:
+    linear-gradient(180deg, rgba(240, 255, 249, 0.98), rgba(228, 248, 240, 0.9));
+}
+
+:root[data-theme="light"] .marketRegime.bearish,
+:root[data-theme="light"] .marketReactionBias.bearish,
+:root[data-theme="light"] .goldHourPanel.bearish,
+:root[data-theme="light"] .goldSummaryPanel.down {
+  border-color: rgba(255, 146, 164, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 248, 250, 0.98), rgba(250, 236, 241, 0.9));
+}
+
+:root[data-theme="light"] .muted,
+:root[data-theme="light"] .newsSourceRow,
+:root[data-theme="light"] .newsSummary,
+:root[data-theme="light"] .newsMeaning,
+:root[data-theme="light"] .goldSummaryTop span,
+:root[data-theme="light"] .goldSummaryText,
+:root[data-theme="light"] .goldSummaryNarrative {
+  color: var(--muted);
+}
+
+:root[data-theme="light"] .newsListItemTitle,
+:root[data-theme="light"] .radarDetailTitle,
+:root[data-theme="light"] .marketReactionPrice,
+:root[data-theme="light"] .goldSummaryTop strong,
+:root[data-theme="light"] .goldSummaryHeadline strong {
+  color: var(--text);
 }
 
 @media (max-width: 1180px) {

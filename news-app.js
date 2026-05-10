@@ -43,6 +43,7 @@
   const marketReactionBias = document.getElementById("marketReactionBias");
   const marketRegime = document.getElementById("marketRegime");
   const marketReactionGrid = document.getElementById("marketReactionGrid");
+  const marketSourceBadge = document.getElementById("marketSourceBadge");
   const marketSessionBadge = document.getElementById("marketSessionBadge");
   const marketStateStrip = document.getElementById("marketStateStrip");
   const marketMoveReason = document.getElementById("marketMoveReason");
@@ -194,6 +195,7 @@
     readFreshKeys: loadReadFreshKeys(),
     dismissedKeys: loadDismissedKeys(),
     tradeNowNotifiedKeys: loadTradeNowNotifiedKeys(),
+    phoneNotifiedKeys: loadPhoneNotifiedKeys(),
     soundEnabled: loadSoundEnabled(),
     soundContext: null,
     hasLoadedNewsOnce: false,
@@ -250,6 +252,22 @@
   function persistTradeNowNotifiedKeys() {
     try {
       window.localStorage.setItem("newstracker-trade-now-notified", JSON.stringify(state.tradeNowNotifiedKeys));
+    } catch {}
+  }
+
+  function loadPhoneNotifiedKeys() {
+    try {
+      const raw = window.localStorage.getItem("newstracker-phone-notified");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function persistPhoneNotifiedKeys() {
+    try {
+      window.localStorage.setItem("newstracker-phone-notified", JSON.stringify(state.phoneNotifiedKeys));
     } catch {}
   }
 
@@ -727,16 +745,25 @@
       items.find((item) => item.id === "xauusd" || item.id === "gold") ||
       items.find((item) => item.role === "live quote") ||
       items[0];
+    const sourceLabel = String(payload.sourceLabel || marketItem?.sourceLabel || "cTrader live spot");
 
     clear(marketReactionGrid);
     const appUpdatedAt = payload.generatedAt;
     const sourceUpdatedAt = marketItem?.updatedAt || payload.generatedAt;
     const priceLabel = marketItem?.displayPrice || "Waiting";
     marketReactionSummary.textContent = marketClosed
-      ? "Weekend / closed session"
+      ? items.length
+        ? `XAUUSD ${priceLabel} | session closed | source ${formatRelativeTime(sourceUpdatedAt)}`
+        : "Weekend / closed session"
       : items.length
-        ? `XAUUSD ${priceLabel} • app refresh ${formatClockTime(appUpdatedAt)} • source ${formatRelativeTime(sourceUpdatedAt)}`
+        ? `XAUUSD ${priceLabel} | app refresh ${formatClockTime(appUpdatedAt)} | source ${formatRelativeTime(sourceUpdatedAt)}`
         : "Waiting for live market data...";
+    if (marketSourceBadge) {
+      marketSourceBadge.className = "marketSourceBadge exact";
+      marketSourceBadge.textContent = marketClosed
+        ? `cTrader saved close: ${sourceLabel}`
+        : `cTrader live only: ${sourceLabel}`;
+    }
     renderMarketSession(payload.marketSession, payload.marketRegime, marketClosed);
     marketReactionBias.hidden = true;
     marketReactionBias.innerHTML = "";
@@ -746,10 +773,10 @@
       const empty = document.createElement("div");
       empty.className = "marketReactionEmpty";
       empty.textContent = marketClosed
-        ? "Gold market is closed. Live XAUUSD interpretation is paused until the session reopens."
+        ? "Gold market is closed. Showing no live updates until the session reopens."
         : (payload.errors || []).length
-          ? `Market data issue: ${payload.errors.map((error) => error.label).join(", ")} did not load.`
-          : "No market data available yet.";
+          ? `cTrader feed issue: ${payload.errors.map((error) => error.label).join(", ")} did not load.`
+          : "No cTrader live market data available yet.";
       marketReactionGrid.appendChild(empty);
       return;
     }
@@ -798,7 +825,7 @@
       const regimeLabel = regime?.label || "Regime loading";
       const summary = session?.summary || "Checking market session.";
       marketStateStrip.className = `marketStateStrip ${marketClosed ? "closed" : "open"}`;
-      marketStateStrip.textContent = marketClosed ? summary : `${regimeLabel} • ${summary}`;
+      marketStateStrip.textContent = marketClosed ? summary : `${regimeLabel} | ${summary}`;
     }
   }
 
@@ -861,7 +888,10 @@
     }
 
     if (!marketItem) {
-      marketMoveReason.textContent = "Waiting for a live market reason...";
+      const marketClosed = payload?.marketSession?.open === false;
+      marketMoveReason.textContent = marketClosed
+        ? "Market closed. Last available XAUUSD quote is shown, but there is no fresh live driver."
+        : "No clear live market driver yet. Waiting for a stronger headline or cleaner move.";
       return;
     }
 
@@ -880,7 +910,11 @@
     if (!reasonItem) {
       badge.textContent = direction.toUpperCase();
       headline.textContent = "Driver unclear";
-      sub.textContent = change || "Waiting for cleaner tape";
+      sub.textContent =
+        change ||
+        (payload?.marketSession?.open === false
+          ? "Closed session. No fresh market driver is available."
+          : "No strong headline is matching the move yet.");
       tile.appendChild(badge);
       tile.appendChild(headline);
       tile.appendChild(sub);
@@ -1403,6 +1437,73 @@
     return `${catalyst.impact || "event"} in ${Math.round(minutes / 60)}h`;
   }
 
+  function isTrumpRiskHeadline(item) {
+    const text = `${item?.title || ""} ${item?.sourceFeed || ""} ${item?.sourceName || ""} ${item?.whyItMatters || ""} ${(item?.categories || []).join(" ")}`.toLowerCase();
+    return /trump|donald trump|truth social|tweet|x post|white house/.test(text);
+  }
+
+  function shouldSendPhoneAlert(item) {
+    if (!item || !item.key) {
+      return false;
+    }
+
+    const actionability = actionabilityMeta(item);
+    if (actionability.label === "Trade now") {
+      return true;
+    }
+
+    return Boolean(
+      isTrumpRiskHeadline(item) &&
+        item.impact === "high" &&
+        Number(item.confidence || 0) >= 58 &&
+        item.urgency !== "background"
+    );
+  }
+
+  function buildPhoneAlertPayload(item) {
+    const actionability = actionabilityMeta(item);
+    const trumpRisk = isTrumpRiskHeadline(item);
+    const titlePrefix = trumpRisk ? "Trump / X alert" : "Trade alert";
+    const title = `${titlePrefix}: ${String(item.title || "Important news").slice(0, 72)}`;
+    const body = [
+      item.sourceName || item.sourceFeed || "News Tracker",
+      item.summary || item.whyItMatters || actionability.summary,
+      `Impact: ${item.impact || "low"} | Confidence: ${item.confidence || 0}%`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return {
+      itemKey: item.key,
+      title,
+      message: body,
+      priority: item.impact === "high" || actionability.label === "Trade now" ? "high" : "default",
+      tags: trumpRisk ? ["warning", "trump", "politics"] : ["warning", "markets"],
+      click: item.link || "",
+    };
+  }
+
+  async function sendPhoneAlert(item) {
+    try {
+      const response = await fetch("/api/phone/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(buildPhoneAlertPayload(item)),
+      });
+
+      if (!response.ok) {
+        throw new Error(`phone notify failed with ${response.status}`);
+      }
+
+      return await response.json().catch(() => ({}));
+    } catch (error) {
+      console.warn("Phone notification failed:", error);
+      return null;
+    }
+  }
+
   function processTradeNowNotifications(items) {
     const tradeNowItems = (items || []).filter((item) => actionabilityMeta(item).label === "Trade now");
     let shouldPlay = false;
@@ -1426,6 +1527,28 @@
 
     if (shouldPlay) {
       playSoftTradeNowSound();
+    }
+  }
+
+  function processPhoneNotifications(items) {
+    const candidates = (items || []).filter((item) => shouldSendPhoneAlert(item));
+    let changed = false;
+
+    candidates.forEach((item) => {
+      if (!item.key || state.phoneNotifiedKeys[item.key]) {
+        return;
+      }
+
+      state.phoneNotifiedKeys[item.key] = Date.now();
+      changed = true;
+
+      if (state.hasLoadedNewsOnce) {
+        sendPhoneAlert(item).catch(() => {});
+      }
+    });
+
+    if (changed) {
+      persistPhoneNotifiedKeys();
     }
   }
 
@@ -1703,16 +1826,14 @@
     const head = document.createElement("div");
     head.className = "newsPriceReactionHead";
     const title = document.createElement("strong");
-    title.textContent = "Movement since headline";
-    const statePill = document.createElement("span");
-    statePill.className = "newsPriceReactionState mixed";
-    statePill.textContent = "Context";
+    title.textContent = "After this headline";
     head.appendChild(title);
-    head.appendChild(statePill);
 
     const summary = document.createElement("p");
     summary.className = "newsPriceReactionSummary";
-    summary.textContent = reaction.summary || "Raw movement only. This is not a confirmation signal.";
+    summary.textContent =
+      simplifyHeadlineReactionSummary(reaction.summary) ||
+      "This only shows whether gold, the dollar, or yields moved after the headline.";
 
     detailReaction.appendChild(head);
     detailReaction.appendChild(summary);
@@ -1729,11 +1850,11 @@
 
       const label = document.createElement("span");
       label.className = "newsPriceReactionLabel";
-      label.textContent = instrument.label;
+      label.textContent = simplifyReactionInstrumentLabel(instrument.label);
 
       const move = document.createElement("strong");
       move.className = "newsPriceReactionValue";
-      move.textContent = instrument.displayChange;
+      move.textContent = simplifyReactionInstrumentValue(instrument);
 
       row.appendChild(label);
       row.appendChild(move);
@@ -1741,6 +1862,57 @@
     });
 
     detailReaction.appendChild(grid);
+  }
+
+  function simplifyHeadlineReactionSummary(summary) {
+    const text = String(summary || "").trim();
+    if (!text) {
+      return "";
+    }
+
+    if (text.includes("headline bias is mixed")) {
+      return "The headline is mixed, so this is only a quick market check.";
+    }
+    if (text.includes("not decisive yet")) {
+      return "The market has not made a clear move yet.";
+    }
+    if (text.includes("confirms the headline")) {
+      return "The market is moving in the same direction as the headline.";
+    }
+    if (text.includes("conflicts with the headline")) {
+      return "The market is moving against the headline.";
+    }
+    if (text.includes("drivers are not clean")) {
+      return "Gold moved, but the rest of the market is not confirming it cleanly.";
+    }
+
+    return "This only shows what moved after the headline.";
+  }
+
+  function simplifyReactionInstrumentLabel(label) {
+    const text = String(label || "").trim().toUpperCase();
+    if (text === "GOLD FUTURES") return "Gold";
+    if (text === "DXY") return "US dollar";
+    if (text === "US10Y") return "10Y yield";
+    return label;
+  }
+
+  function simplifyReactionInstrumentValue(instrument) {
+    const move = String(instrument?.move || "flat").toLowerCase();
+    const change = Number(instrument?.change ?? instrument?.dayChange ?? 0);
+
+    if (instrument?.format === "yield") {
+      const bps = Math.abs(change * 100);
+      if (move === "flat" || !Number.isFinite(bps) || bps < 0.05) return "Flat";
+      return `${move === "up" ? "Up" : "Down"} ${bps.toFixed(1)} bp`;
+    }
+
+    if (move === "flat" || !Number.isFinite(change) || Math.abs(change) < 0.01) {
+      return "Flat";
+    }
+
+    const rounded = Math.abs(change) >= 10 ? Math.abs(change).toFixed(0) : Math.abs(change).toFixed(2);
+    return `${move === "up" ? "Up" : "Down"} ${rounded}`;
   }
 
   async function loadHeadlineReaction(item) {
@@ -1997,6 +2169,7 @@
 
       state.catalysts = catalysts;
       processTradeNowNotifications(state.items);
+      processPhoneNotifications(state.items);
       state.hasLoadedNewsOnce = true;
       renderStatus();
       loadMarketReaction().catch(() => {});
@@ -2261,3 +2434,4 @@
   startAutoPolling();
   bootstrap().catch(() => {});
 })();
+
